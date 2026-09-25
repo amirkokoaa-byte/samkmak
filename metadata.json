@@ -1,0 +1,6 @@
+{
+  "name": "نظام إدارة فواتير وطلبات المأكولات البحرية",
+  "description": "نظام متكامل وفوري لإدارة طلبات وفواتير مطعم الأسماك والمأكولات البحرية مع التحديث اللحظي وتصدير الفواتير والملخصات.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
