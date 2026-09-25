@@ -13,6 +13,10 @@ import {
   DollarSign,
   Layers,
   Sparkles,
+  Users,
+  UserPlus,
+  Edit3,
+  User,
 } from 'lucide-react';
 import type { AppConfig, AppState, MenuItem } from '../types/index.ts';
 import { printDocument, generateDirectJsPDF } from '../services/pdfExport.ts';
@@ -28,6 +32,9 @@ interface AdminModalProps {
   onSaveMenu: (items: MenuItem[]) => void;
   state: AppState;
   onClearAllOrders: () => void;
+  onRenameUser?: (oldName: string, newName: string) => void;
+  onDeleteUser?: (name: string) => void;
+  onAddUser?: (name: string) => void;
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({
@@ -41,10 +48,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onSaveMenu,
   state,
   onClearAllOrders,
+  onRenameUser,
+  onDeleteUser,
+  onAddUser,
 }) => {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'menu' | 'pdf' | 'danger'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'menu' | 'pdf' | 'users'>('general');
+
+  // User management states
+  const [editingUserName, setEditingUserName] = useState<string | null>(null);
+  const [editUserNameValue, setEditUserNameValue] = useState('');
+  const [newUserNameInput, setNewUserNameInput] = useState('');
 
   // Local form states
   const [siteTitle, setSiteTitle] = useState(config.siteTitle);
@@ -208,53 +223,53 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           /* Admin Main Tabs */
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Tabs */}
-            <div className="flex items-center border-b border-slate-800 bg-slate-950/40 px-6 gap-2 pt-2">
+            <div className="flex items-center border-b border-slate-800 bg-slate-950/60 px-2 sm:px-6 gap-1 sm:gap-2 pt-2 overflow-x-auto justify-around sm:justify-start">
               <button
                 onClick={() => setActiveTab('general')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+                className={`flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold border-b-2 transition-colors whitespace-nowrap shrink-0 ${
                   activeTab === 'general'
                     ? 'border-blue-500 text-blue-400'
                     : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <Settings className="w-3.5 h-3.5" />
-                <span>إعدادات الموقع والتحويل</span>
+                <span>إعدادات</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('menu')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+                className={`flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold border-b-2 transition-colors whitespace-nowrap shrink-0 ${
                   activeTab === 'menu'
                     ? 'border-blue-500 text-blue-400'
                     : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <DollarSign className="w-3.5 h-3.5" />
-                <span>قائمة الأصناف والأسعار ({localMenu.length})</span>
+                <span>الأصناف</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('pdf')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+                className={`flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold border-b-2 transition-colors whitespace-nowrap shrink-0 ${
                   activeTab === 'pdf'
                     ? 'border-blue-500 text-blue-400'
                     : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <FileDown className="w-3.5 h-3.5" />
-                <span>تصدير PDF والطباعة</span>
+                <span>PDF</span>
               </button>
 
               <button
-                onClick={() => setActiveTab('danger')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
-                  activeTab === 'danger'
-                    ? 'border-rose-500 text-rose-400'
+                onClick={() => setActiveTab('users')}
+                className={`flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+                  activeTab === 'users'
+                    ? 'border-blue-500 text-blue-400'
                     : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>إعادة ضبط</span>
+                <Users className="w-3.5 h-3.5" />
+                <span>الأسماء</span>
               </button>
             </div>
 
@@ -547,32 +562,170 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </div>
               )}
 
-              {/* TAB 4: Danger Zone */}
-              {activeTab === 'danger' && (
-                <div className="max-w-md mx-auto p-4 bg-rose-950/20 border border-rose-900/60 rounded-xl space-y-4 text-center">
-                  <div className="w-10 h-10 rounded-full bg-rose-900/40 border border-rose-700 flex items-center justify-center text-rose-400 mx-auto">
-                    <Trash2 className="w-5 h-5" />
+              {/* TAB: Registered Names (الأسماء المسجلة) */}
+              {activeTab === 'users' && (
+                <div className="space-y-6 max-w-2xl mx-auto">
+                  <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 sm:p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                          <Users className="w-4 h-4 text-blue-400" />
+                          <span>إدارة الأسماء المسجلة في النظام</span>
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          يمكنك إضافة أسماء جديدة، تعديل أي اسم قائم، أو حذفه بالكامل.
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono-num font-bold text-blue-400 bg-blue-950/80 px-2.5 py-1 rounded-lg border border-blue-800/60">
+                        {state.users.length} اسم مسجل
+                      </span>
+                    </div>
+
+                    {/* Add new user form */}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const trimmed = newUserNameInput.trim();
+                        if (trimmed && onAddUser) {
+                          onAddUser(trimmed);
+                          setNewUserNameInput('');
+                        }
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={newUserNameInput}
+                        onChange={(e) => setNewUserNameInput(e.target.value)}
+                        placeholder="أدخل اسماً جديداً..."
+                        className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!newUserNameInput.trim()}
+                        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-lg text-xs transition-colors shrink-0 flex items-center gap-1.5"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>إضافة اسم</span>
+                      </button>
+                    </form>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-rose-300">
-                      تفريغ وإلغاء جميع الطلبات الحالية
-                    </h4>
-                    <p className="text-xs text-rose-400/80 mt-1">
-                      سيؤدي هذا الإجراء إلى مسح طلبات جميع الأسماء وبدء وردية جديدة.
-                    </p>
+
+                  {/* Registered names list/table */}
+                  <div className="border border-slate-800 rounded-xl overflow-hidden shadow">
+                    <table className="w-full text-right text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-800">
+                          <th className="py-2.5 px-3 text-center w-12 font-bold">م</th>
+                          <th className="py-2.5 px-3 font-bold">اسم العميل المسجل</th>
+                          <th className="py-2.5 px-3 text-center font-bold w-36">حالة الطلب الحالي</th>
+                          <th className="py-2.5 px-3 text-center font-bold w-28">الإجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/80 font-medium">
+                        {state.users.map((userName, idx) => {
+                          const order = state.orders[userName];
+                          const hasOrder = order && order.items && order.items.length > 0;
+                          const itemsCount = hasOrder
+                            ? order.items.reduce((s, it) => s + (Number(it.count) || 0), 0)
+                            : 0;
+
+                          const isEditing = editingUserName === userName;
+
+                          return (
+                            <tr key={userName} className="transition-colors">
+                              <td className="py-2.5 px-3 text-center font-mono-num font-bold text-slate-400">
+                                {idx + 1}
+                              </td>
+
+                              <td className="py-2.5 px-3">
+                                {isEditing ? (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      value={editUserNameValue}
+                                      onChange={(e) => setEditUserNameValue(e.target.value)}
+                                      className="bg-slate-900 border border-blue-500 rounded px-2.5 py-1 text-xs text-white focus:outline-none w-full max-w-xs"
+                                      autoFocus
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const trimmed = editUserNameValue.trim();
+                                        if (trimmed && trimmed !== userName && onRenameUser) {
+                                          onRenameUser(userName, trimmed);
+                                        }
+                                        setEditingUserName(null);
+                                      }}
+                                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition-colors"
+                                    >
+                                      حفظ
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingUserName(null)}
+                                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded text-[11px] transition-colors"
+                                    >
+                                      إلغاء
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <User className="w-3.5 h-3.5 text-blue-400" />
+                                    <span className="font-bold text-white text-xs sm:text-sm">
+                                      {userName}
+                                    </span>
+                                  </div>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3 text-center">
+                                {hasOrder ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] text-emerald-300 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-800/80 font-semibold font-mono-num">
+                                    مسجل له طلب ({itemsCount} قطع)
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400">
+                                    لا يوجد طلب حالي
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3 text-center">
+                                {!isEditing && (
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingUserName(userName);
+                                        setEditUserNameValue(userName);
+                                      }}
+                                      className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-white transition-colors"
+                                      title="تعديل هذا الاسم"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (confirm(`هل أنت متأكد من حذف اسم (${userName}) نهائياً من النظام؟`)) {
+                                          if (onDeleteUser) onDeleteUser(userName);
+                                        }
+                                      }}
+                                      className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-rose-400 hover:text-white transition-colors"
+                                      title="حذف هذا الاسم"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm('هل أنت متأكد من رغبتك في تفريغ ومسح جميع طلبات اليوم؟')) {
-                        onClearAllOrders();
-                        onClose();
-                      }
-                    }}
-                    className="bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 px-4 rounded-lg text-xs transition-colors shadow"
-                  >
-                    تأكيد تفريغ كافة الطلبات
-                  </button>
                 </div>
               )}
             </div>

@@ -1,12 +1,14 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
-import type { AppState, MenuItem, OrderItem, UserOrder } from './src/types/index.ts';
+import type { AppState, MenuItem, OrderHistoryEntry, OrderItem, UserOrder } from './src/types/index.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const STATE_FILE = path.resolve(__dirname, 'server_state.json');
 
 const app = express();
 app.use(express.json());
@@ -38,50 +40,76 @@ let state: AppState = {
   },
   users: ['أمير', 'ماهر', 'كرم', 'ياسر', 'إسلام'],
   menuItems: defaultMenuItems,
-  orders: {},
+  orders: {
+    'أمير': {
+      userName: 'أمير',
+      updatedAt: Date.now(),
+      items: [
+        {
+          id: 'ord-init-1',
+          itemType: 'سمكه بلطي كبيره سنجاري',
+          count: 2,
+          weightText: '',
+          price: 260,
+          unitPrice: 130,
+        },
+        {
+          id: 'ord-init-2',
+          itemType: 'جمبري مشويه',
+          count: 1,
+          weightText: 'نصف كيلو',
+          price: 210,
+          unitPrice: 420,
+        },
+      ],
+    },
+    'ماهر': {
+      userName: 'ماهر',
+      updatedAt: Date.now(),
+      items: [
+        {
+          id: 'ord-init-3',
+          itemType: 'سمك بوري كبيره سنجاري',
+          count: 1,
+          weightText: '',
+          price: 210,
+          unitPrice: 210,
+        },
+      ],
+    },
+  },
+  history: {},
 };
 
-// Seed sample order for demonstration if needed, or start with empty orders
-state.orders = {
-  'أمير': {
-    userName: 'أمير',
-    updatedAt: Date.now(),
-    items: [
-      {
-        id: 'ord-init-1',
-        itemType: 'سمكه بلطي كبيره سنجاري',
-        count: 2,
-        weightText: '',
-        price: 260,
-        unitPrice: 130,
-      },
-      {
-        id: 'ord-init-2',
-        itemType: 'جمبري مشويه',
-        count: 1,
-        weightText: 'نصف كيلو',
-        price: 210,
-        unitPrice: 420,
-      }
-    ]
-  },
-  'ماهر': {
-    userName: 'ماهر',
-    updatedAt: Date.now(),
-    items: [
-      {
-        id: 'ord-init-3',
-        itemType: 'سمك بوري كبيره سنجاري',
-        count: 1,
-        weightText: '',
-        price: 210,
-        unitPrice: 210,
-      }
-    ]
+// Load saved state from disk if exists
+try {
+  if (fs.existsSync(STATE_FILE)) {
+    const raw = fs.readFileSync(STATE_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.config && Array.isArray(parsed.users)) {
+      state = parsed;
+      console.log('[Server] Loaded persisted state from disk successfully.');
+    }
   }
-};
+} catch (err) {
+  console.warn('[Server] Error reading persisted state file:', err);
+}
+
+function saveStateToDisk() {
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[Server] Failed to write state to disk:', err);
+  }
+}
+
+// Track Server-Sent Events (SSE) connections for mobile & browser instant real-time push
+const sseClients = new Set<Response>();
 
 function broadcast(payload: { type: string; data: any }) {
+  saveStateToDisk();
+
+  // 1. WebSocket
   const message = JSON.stringify(payload);
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
@@ -92,10 +120,50 @@ function broadcast(payload: { type: string; data: any }) {
       }
     }
   });
+
+  // 2. Server-Sent Events (SSE) to all connected phones and browsers
+  const sseMessage = `data: ${message}\n\n`;
+  sseClients.forEach((res) => {
+    try {
+      res.write(sseMessage);
+    } catch {
+      sseClients.delete(res);
+    }
+  });
 }
 
-// REST Endpoints for compatibility and initial fetch
+// Server-Sent Events (SSE) stream endpoint
+app.get('/api/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders?.();
+
+  // Send current state immediately on connect
+  res.write(`data: ${JSON.stringify({ type: 'INIT_STATE', data: state })}\n\n`);
+
+  sseClients.add(res);
+
+  // Heartbeat every 20 seconds to keep connection alive through mobile network proxies
+  const keepAliveInterval = setInterval(() => {
+    try {
+      res.write(': keepalive\n\n');
+    } catch {
+      clearInterval(keepAliveInterval);
+      sseClients.delete(res);
+    }
+  }, 20000);
+
+  req.on('close', () => {
+    clearInterval(keepAliveInterval);
+    sseClients.delete(res);
+  });
+});
+
+// REST Endpoints for compatibility, immediate fetch and robust mobile updates
 app.get('/api/state', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
   res.json(state);
 });
 
@@ -117,6 +185,35 @@ app.post('/api/users', (req, res) => {
     broadcast({ type: 'USERS_UPDATED', data: state.users });
   }
   res.json({ success: true, users: state.users });
+});
+
+app.post('/api/users/rename', (req, res) => {
+  const { oldName, newName } = req.body;
+  const trimmedNew = typeof newName === 'string' ? newName.trim() : '';
+  if (trimmedNew && oldName && state.users.includes(oldName)) {
+    state.users = state.users.map((u) => (u === oldName ? trimmedNew : u));
+    if (state.orders[oldName]) {
+      state.orders[trimmedNew] = {
+        ...state.orders[oldName],
+        userName: trimmedNew,
+      };
+      delete state.orders[oldName];
+    }
+    broadcast({ type: 'USERS_UPDATED', data: state.users });
+    broadcast({ type: 'INIT_STATE', data: state });
+  }
+  res.json({ success: true, users: state.users, orders: state.orders });
+});
+
+app.post('/api/users/delete', (req, res) => {
+  const { name } = req.body;
+  if (typeof name === 'string' && name) {
+    state.users = state.users.filter((u) => u !== name);
+    delete state.orders[name];
+    broadcast({ type: 'USERS_UPDATED', data: state.users });
+    broadcast({ type: 'INIT_STATE', data: state });
+  }
+  res.json({ success: true, users: state.users, orders: state.orders });
 });
 
 app.post('/api/menu', (req, res) => {
@@ -151,6 +248,25 @@ app.post('/api/orders/clear-all', (_req, res) => {
   res.json({ success: true, orders: state.orders });
 });
 
+app.post('/api/history', (req, res) => {
+  const entry: OrderHistoryEntry = req.body;
+  if (entry && entry.id) {
+    if (!state.history) state.history = {};
+    state.history[entry.id] = entry;
+    broadcast({ type: 'HISTORY_UPDATED', data: state.history });
+  }
+  res.json({ success: true, history: state.history });
+});
+
+app.post('/api/history/delete', (req, res) => {
+  const { id } = req.body;
+  if (id && state.history && state.history[id]) {
+    delete state.history[id];
+    broadcast({ type: 'HISTORY_UPDATED', data: state.history });
+  }
+  res.json({ success: true, history: state.history });
+});
+
 // WebSocket message handling
 wss.on('connection', (ws) => {
   // Send initial full state immediately
@@ -180,6 +296,29 @@ wss.on('connection', (ws) => {
           }
           break;
         }
+        case 'RENAME_USER': {
+          const { oldName, newName } = msg.data || {};
+          if (oldName && newName && state.users.includes(oldName)) {
+            state.users = state.users.map((u) => (u === oldName ? newName : u));
+            if (state.orders[oldName]) {
+              state.orders[newName] = { ...state.orders[oldName], userName: newName };
+              delete state.orders[oldName];
+            }
+            broadcast({ type: 'USERS_UPDATED', data: state.users });
+            broadcast({ type: 'INIT_STATE', data: state });
+          }
+          break;
+        }
+        case 'DELETE_USER': {
+          const { name } = msg.data || {};
+          if (name) {
+            state.users = state.users.filter((u) => u !== name);
+            delete state.orders[name];
+            broadcast({ type: 'USERS_UPDATED', data: state.users });
+            broadcast({ type: 'INIT_STATE', data: state });
+          }
+          break;
+        }
         case 'UPDATE_MENU': {
           if (Array.isArray(msg.data?.menuItems)) {
             state.menuItems = msg.data.menuItems;
@@ -206,6 +345,23 @@ wss.on('connection', (ws) => {
         case 'CLEAR_ALL_ORDERS': {
           state.orders = {};
           broadcast({ type: 'ALL_ORDERS_CLEARED', data: {} });
+          break;
+        }
+        case 'SAVE_HISTORY': {
+          const entry = msg.data;
+          if (entry && entry.id) {
+            if (!state.history) state.history = {};
+            state.history[entry.id] = entry;
+            broadcast({ type: 'HISTORY_UPDATED', data: state.history });
+          }
+          break;
+        }
+        case 'DELETE_HISTORY': {
+          const { id } = msg.data || {};
+          if (id && state.history && state.history[id]) {
+            delete state.history[id];
+            broadcast({ type: 'HISTORY_UPDATED', data: state.history });
+          }
           break;
         }
         default:

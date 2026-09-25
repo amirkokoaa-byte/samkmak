@@ -27,9 +27,20 @@ export interface AppConfig {
   instapayNumber: string;
 }
 
+export interface OrderHistoryEntry {
+  id: string;
+  timestamp: number;
+  dateStr: string; // e.g. "الجمعة 25 سبتمبر 2026 - 03:30 م"
+  dayName: string; // e.g. "الجمعة"
+  totalPrice: number;
+  totalUsersCount: number;
+  orders: Record<string, UserOrder>;
+}
+
 export interface AppState {
   config: AppConfig;
   users: string[];
   menuItems: MenuItem[];
   orders: Record<string, UserOrder>; // keyed by userName
+  history?: Record<string, OrderHistoryEntry>; // permanent archived orders
 }

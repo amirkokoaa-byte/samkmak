@@ -28,20 +28,13 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ orders }) =>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">
-                الحساب الإجمالي الختامي
-              </span>
-              <span className="text-slate-500 text-xs">·</span>
-              <span className="text-xs text-slate-400 font-medium">
-                {activeOrders.length} عملاء مسجلين
+              <span className="text-xs font-bold text-blue-400">
+                عدد المسجلين لهم طلبات: {activeOrders.length}
               </span>
             </div>
-            <h3 className="text-lg sm:text-xl font-extrabold text-slate-100 mt-0.5">
-              قيمة جميع الأسماء (Grand Total for all Names)
+            <h3 className="text-lg sm:text-xl font-extrabold text-slate-100 mt-1">
+              الإجمالي للجميع
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              مجموع فواتير كافة العملاء والأصناف المسجلة في النظام حالياً
-            </p>
           </div>
         </div>
 

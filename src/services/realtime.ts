@@ -1,4 +1,4 @@
-import type { AppConfig, AppState, MenuItem, OrderItem, UserOrder } from '../types/index.ts';
+import type { AppConfig, AppState, MenuItem, OrderHistoryEntry, OrderItem, UserOrder } from '../types/index.ts';
 import {
   isFirebaseConfigured,
   listenToFirebase,
@@ -7,6 +7,10 @@ import {
   setFirebaseMenu,
   setFirebaseUserOrder,
   clearFirebaseAllOrders,
+  addFirebaseOrderHistory,
+  deleteFirebaseOrderHistory,
+  deleteFirebaseUser,
+  renameFirebaseUser,
 } from '../firebase.ts';
 
 const STORAGE_KEY = 'seafood_order_system_state';
@@ -73,12 +77,14 @@ export const initialAppState: AppState = {
       ],
     },
   },
+  history: {},
 };
 
 type StateListener = (state: AppState) => void;
 
 class RealtimeSyncService {
   private socket: WebSocket | null = null;
+  private sse: EventSource | null = null;
   private listeners: Set<StateListener> = new Set();
   private broadcastChannel: BroadcastChannel | null = null;
   private currentState: AppState = initialAppState;
@@ -90,7 +96,9 @@ class RealtimeSyncService {
     this.loadLocalBackup();
     this.initBroadcastChannel();
     this.initFirebase();
+    this.initSSE();
     this.connectWebSocket();
+    this.startPolling();
   }
 
   private initFirebase() {
@@ -112,9 +120,7 @@ class RealtimeSyncService {
           this.currentState = parsed;
         }
       }
-    } catch {
-      // fallback to initial
-    }
+    } catch {}
   }
 
   private saveLocalBackup(state: AppState) {
@@ -171,6 +177,41 @@ class RealtimeSyncService {
     }
   }
 
+  // Server-Sent Events (SSE) for 100% reliable mobile & web instant updates
+  private initSSE() {
+    if (typeof window === 'undefined') return;
+    try {
+      if (this.sse) {
+        this.sse.close();
+      }
+      this.sse = new EventSource('/api/events');
+
+      this.sse.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          this.handleServerMessage(msg);
+        } catch (err) {
+          console.error('SSE parse error:', err);
+        }
+      };
+
+      this.sse.onerror = () => {
+        // SSE auto-reconnects, also pull fallback
+        this.fetchStateFallback();
+      };
+    } catch (e) {
+      console.warn('SSE initialization error:', e);
+    }
+  }
+
+  // Background interval polling (2.5s) to guarantee real-time sync across all mobile devices
+  private startPolling() {
+    if (typeof window === 'undefined') return;
+    setInterval(() => {
+      this.fetchStateFallback();
+    }, 2500);
+  }
+
   private connectWebSocket() {
     if (typeof window === 'undefined') return;
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
@@ -209,7 +250,7 @@ class RealtimeSyncService {
           this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
             this.connectWebSocket();
-          }, 3000);
+          }, 4000);
         }
       };
     } catch {
@@ -219,23 +260,25 @@ class RealtimeSyncService {
 
   private async fetchStateFallback() {
     try {
-      const res = await fetch('/api/state');
+      const res = await fetch('/api/state', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (!isFirebaseConfigured) {
-          this.currentState = data;
-          this.notifyListeners();
-          this.syncLocalAcrossTabs();
+        if (data && data.config && Array.isArray(data.users)) {
+          // Check if data actually changed to avoid unnecessary re-renders
+          const currentJson = JSON.stringify(this.currentState);
+          const newJson = JSON.stringify(data);
+          if (currentJson !== newJson) {
+            this.currentState = data;
+            this.notifyListeners();
+            this.syncLocalAcrossTabs();
+          }
         }
       }
-    } catch {
-      // Continue with current local state
-    }
+    } catch {}
   }
 
   private handleServerMessage(msg: { type: string; data: any }) {
     if (isFirebaseConfigured) {
-      // If Firebase Realtime Database is active, Firebase onValue is the primary authority
       return;
     }
 
@@ -286,6 +329,13 @@ class RealtimeSyncService {
         this.notifyListeners();
         this.syncLocalAcrossTabs();
         break;
+      case 'HISTORY_UPDATED':
+        if (msg.data) {
+          this.currentState = { ...this.currentState, history: msg.data };
+          this.notifyListeners();
+          this.syncLocalAcrossTabs();
+        }
+        break;
       default:
         break;
     }
@@ -297,7 +347,7 @@ class RealtimeSyncService {
     }
   }
 
-  // Client mutation methods (Syncs to Firebase + WebSocket + Local)
+  // Client mutation methods (Immediate Optimistic Local + Broadcast + HTTP Post)
   public async updateConfig(newConfig: Partial<AppConfig>) {
     const updatedConfig = { ...this.currentState.config, ...newConfig };
     this.currentState = { ...this.currentState, config: updatedConfig };
@@ -337,6 +387,64 @@ class RealtimeSyncService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: trimmed }),
+      });
+    } catch {}
+  }
+
+  public async renameUser(oldName: string, newName: string) {
+    const trimmedNew = newName.trim();
+    if (!trimmedNew || oldName === trimmedNew) return;
+
+    const newUsers = this.currentState.users.map((u) => (u === oldName ? trimmedNew : u));
+    const newOrders = { ...this.currentState.orders };
+
+    let existingItems: OrderItem[] | undefined;
+    if (newOrders[oldName]) {
+      existingItems = newOrders[oldName].items;
+      newOrders[trimmedNew] = {
+        ...newOrders[oldName],
+        userName: trimmedNew,
+      };
+      delete newOrders[oldName];
+    }
+
+    this.currentState = { ...this.currentState, users: newUsers, orders: newOrders };
+    this.notifyListeners();
+    this.syncLocalAcrossTabs();
+
+    if (isFirebaseConfigured) {
+      renameFirebaseUser(oldName, trimmedNew, newUsers, existingItems);
+    }
+
+    this.send({ type: 'RENAME_USER', data: { oldName, newName: trimmedNew } });
+    try {
+      await fetch('/api/users/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldName, newName: trimmedNew }),
+      });
+    } catch {}
+  }
+
+  public async deleteUser(name: string) {
+    const newUsers = this.currentState.users.filter((u) => u !== name);
+    const newOrders = { ...this.currentState.orders };
+    delete newOrders[name];
+
+    this.currentState = { ...this.currentState, users: newUsers, orders: newOrders };
+    this.notifyListeners();
+    this.syncLocalAcrossTabs();
+
+    if (isFirebaseConfigured) {
+      deleteFirebaseUser(name, newUsers);
+    }
+
+    this.send({ type: 'DELETE_USER', data: { name } });
+    try {
+      await fetch('/api/users/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
       });
     } catch {}
   }
@@ -401,6 +509,90 @@ class RealtimeSyncService {
     this.send({ type: 'CLEAR_ALL_ORDERS' });
     try {
       await fetch('/api/orders/clear-all', { method: 'POST' });
+    } catch {}
+  }
+
+  public async archiveCurrentOrders(): Promise<boolean> {
+    const activeOrders: Record<string, UserOrder> = {};
+    let grandTotal = 0;
+    let usersCount = 0;
+
+    Object.entries(this.currentState.orders).forEach(([user, order]) => {
+      if (order && order.items && order.items.length > 0) {
+        activeOrders[user] = order;
+        usersCount++;
+        grandTotal += order.items.reduce((s, it) => s + (Number(it.price) || 0), 0);
+      }
+    });
+
+    if (usersCount === 0) {
+      return false;
+    }
+
+    const now = new Date();
+    const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const dayName = dayNames[now.getDay()];
+    const dateFormatted = now.toLocaleDateString('ar-EG', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const timeFormatted = now.toLocaleTimeString('ar-EG', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const dateStr = `${dayName} ${dateFormatted} - ${timeFormatted}`;
+
+    const entryId = `hist-${Date.now()}`;
+    const entry: OrderHistoryEntry = {
+      id: entryId,
+      timestamp: Date.now(),
+      dateStr,
+      dayName,
+      totalPrice: grandTotal,
+      totalUsersCount: usersCount,
+      orders: activeOrders,
+    };
+
+    const newHistory = { ...(this.currentState.history || {}), [entryId]: entry };
+    this.currentState = { ...this.currentState, history: newHistory };
+    this.notifyListeners();
+    this.syncLocalAcrossTabs();
+
+    if (isFirebaseConfigured) {
+      addFirebaseOrderHistory(entry);
+    }
+
+    this.send({ type: 'SAVE_HISTORY', data: entry });
+    try {
+      await fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+    } catch {}
+
+    return true;
+  }
+
+  public async deleteHistoryEntry(id: string) {
+    const newHistory = { ...(this.currentState.history || {}) };
+    delete newHistory[id];
+    this.currentState = { ...this.currentState, history: newHistory };
+    this.notifyListeners();
+    this.syncLocalAcrossTabs();
+
+    if (isFirebaseConfigured) {
+      deleteFirebaseOrderHistory(id);
+    }
+
+    this.send({ type: 'DELETE_HISTORY', data: { id } });
+    try {
+      await fetch('/api/history/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
     } catch {}
   }
 }

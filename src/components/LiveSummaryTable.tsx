@@ -53,9 +53,6 @@ export const LiveSummaryTable: React.FC<LiveSummaryTableProps> = ({ orders }) =>
                 تحديث فوري
               </span>
             </h2>
-            <p className="text-xs text-slate-400">
-              تجميع لحظي فوري لكميات الأسماك والجمبري المطلوبة لتسهيل التجهيز والطهي في المطبخ والشواية
-            </p>
           </div>
         </div>
 
@@ -67,66 +64,8 @@ export const LiveSummaryTable: React.FC<LiveSummaryTableProps> = ({ orders }) =>
         </div>
       </div>
 
-      {/* Quick Glance KPI Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 my-5">
-        <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span className="font-medium">إجمالي البلطي</span>
-            <Fish className="w-3.5 h-3.5 text-blue-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="font-mono-num font-extrabold text-xl text-slate-100">{totalTilapia}</span>
-            <span className="text-[11px] text-slate-500 font-sans">سمكة</span>
-          </div>
-        </div>
-
-        <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span className="font-medium">إجمالي البوري</span>
-            <Fish className="w-3.5 h-3.5 text-indigo-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="font-mono-num font-extrabold text-xl text-slate-100">{totalMullet}</span>
-            <span className="text-[11px] text-slate-500 font-sans">سمكة</span>
-          </div>
-        </div>
-
-        <div className="bg-slate-950/70 border border-amber-900/40 rounded-xl p-3">
-          <div className="flex items-center justify-between text-amber-300 text-xs">
-            <span className="font-medium">إجمالي الجمبري</span>
-            <Flame className="w-3.5 h-3.5 text-amber-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="font-mono-num font-extrabold text-xl text-amber-300">{totalShrimpCount}</span>
-            <span className="text-[11px] text-slate-500 font-sans">وجبة/طلب</span>
-          </div>
-        </div>
-
-        <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span className="font-medium">إجمالي المكاريل</span>
-            <Fish className="w-3.5 h-3.5 text-teal-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="font-mono-num font-extrabold text-xl text-slate-100">{totalMakaril}</span>
-            <span className="text-[11px] text-slate-500 font-sans">سمكة</span>
-          </div>
-        </div>
-
-        <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 col-span-2 sm:col-span-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span className="font-medium">إجمالي المكرونة</span>
-            <Fish className="w-3.5 h-3.5 text-cyan-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="font-mono-num font-extrabold text-xl text-slate-100">{totalMakrouna}</span>
-            <span className="text-[11px] text-slate-500 font-sans">وجبة</span>
-          </div>
-        </div>
-      </div>
-
       {/* Detailed Live Aggregation Table */}
-      <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40">
+      <div className="border border-slate-800 rounded-xl overflow-hidden mt-5">
         <div className="overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead>

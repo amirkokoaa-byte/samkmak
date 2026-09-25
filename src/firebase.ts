@@ -71,6 +71,7 @@ export function listenToFirebase(
             ? data.menuItems
             : (data.menuItems ? Object.values(data.menuItems) : defaultState.menuItems),
           orders: data.orders || {},
+          history: data.history || defaultState.history || {},
         };
         onUpdate(normalizedState);
       }
@@ -104,6 +105,49 @@ export async function addFirebaseUser(name: string, currentUsers: string[]) {
     await set(usersRef, [...currentUsers, trimmed]);
   } catch (err) {
     console.error('[Firebase] Error adding user:', err);
+  }
+}
+
+export async function setFirebaseUsers(users: string[]) {
+  if (!database) return;
+  try {
+    const usersRef = ref(database, `${DB_ROOT}/users`);
+    await set(usersRef, users);
+  } catch (err) {
+    console.error('[Firebase] Error setting users:', err);
+  }
+}
+
+export async function deleteFirebaseUser(name: string, updatedUsers: string[]) {
+  if (!database) return;
+  try {
+    const usersRef = ref(database, `${DB_ROOT}/users`);
+    await set(usersRef, updatedUsers);
+    const orderRef = ref(database, `${DB_ROOT}/orders/${name}`);
+    await set(orderRef, null);
+  } catch (err) {
+    console.error('[Firebase] Error deleting user:', err);
+  }
+}
+
+export async function renameFirebaseUser(oldName: string, newName: string, updatedUsers: string[], existingOrderItems?: OrderItem[]) {
+  if (!database) return;
+  try {
+    const usersRef = ref(database, `${DB_ROOT}/users`);
+    await set(usersRef, updatedUsers);
+
+    if (existingOrderItems && existingOrderItems.length > 0) {
+      const oldOrderRef = ref(database, `${DB_ROOT}/orders/${oldName}`);
+      await set(oldOrderRef, null);
+      const newOrderRef = ref(database, `${DB_ROOT}/orders/${newName}`);
+      await set(newOrderRef, {
+        userName: newName,
+        items: existingOrderItems,
+        updatedAt: Date.now(),
+      });
+    }
+  } catch (err) {
+    console.error('[Firebase] Error renaming user:', err);
   }
 }
 
@@ -142,5 +186,25 @@ export async function clearFirebaseAllOrders() {
     await set(ordersRef, null);
   } catch (err) {
     console.error('[Firebase] Error clearing all orders:', err);
+  }
+}
+
+export async function addFirebaseOrderHistory(entry: any) {
+  if (!database) return;
+  try {
+    const historyRef = ref(database, `${DB_ROOT}/history/${entry.id}`);
+    await set(historyRef, entry);
+  } catch (err) {
+    console.error('[Firebase] Error saving order history to Firebase:', err);
+  }
+}
+
+export async function deleteFirebaseOrderHistory(id: string) {
+  if (!database) return;
+  try {
+    const historyItemRef = ref(database, `${DB_ROOT}/history/${id}`);
+    await set(historyItemRef, null);
+  } catch (err) {
+    console.error('[Firebase] Error deleting order history item:', err);
   }
 }
