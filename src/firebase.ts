@@ -11,16 +11,16 @@ import {
 } from 'firebase/database';
 import type { AppConfig, AppState, MenuItem, OrderItem } from './types/index.ts';
 
-// Read config from Vite environment variables (protecting credentials from git)
+// Firebase Realtime Database Configuration for project: samak-c0399
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.apiKey : ''),
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.authDomain : ''),
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.databaseURL : ''),
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.projectId : ''),
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.storageBucket : ''),
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.messagingSenderId : ''),
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.appId : ''),
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.measurementId : ''),
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyC61ENWoTnUwlX81fKIDYBy_cZtp0fDr94",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "samak-c0399.firebaseapp.com",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://samak-c0399-default-rtdb.firebaseio.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "samak-c0399",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "samak-c0399.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "911044104014",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:911044104014:web:1a9c2e0303cfcfbb54181f",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-YBWG9R7JLY",
 };
 
 let database: Database | null = null;
