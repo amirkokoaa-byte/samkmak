@@ -140,7 +140,11 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
   };
 
   const handleRemoveEditRow = (index: number) => {
-    setEditItems((prev) => prev.filter((_, i) => i !== index));
+    const updated = editItems.filter((_, i) => i !== index);
+    setEditItems(updated);
+    if (editingUser) {
+      onSaveOrder(editingUser, updated);
+    }
   };
 
   return (
@@ -289,16 +293,14 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                         <th className="py-2 px-2 sm:px-3 text-left whitespace-nowrap font-bold w-16 sm:w-24">
                           السعر
                         </th>
-                        {isEditingThisOrder && (
-                          <th className="py-2 px-1 text-center font-bold w-8">
-                            حذف
-                          </th>
-                        )}
+                        <th className="py-2 px-1 text-center font-bold w-9 sm:w-10">
+                          حذف
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 font-medium">
                       {!isEditingThisOrder ? (
-                        /* Read-only Table Rows */
+                        /* Read-only Table Rows with Instant Delete */
                         order.items.map((item, idx) => (
                           <tr key={item.id || idx}>
                             <td className="py-2 px-2 text-center font-mono-num text-[11px] whitespace-nowrap hidden sm:table-cell">
@@ -322,6 +324,19 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                             <td className="py-2 px-2 sm:px-3 text-left font-mono-num font-bold text-[11px] sm:text-xs whitespace-nowrap">
                               {Number(item.price).toLocaleString()}{' '}
                               <span className="text-[9px] sm:text-[10px] font-sans">ج.م</span>
+                            </td>
+                            <td className="py-2 px-1 text-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = order.items.filter((_, i) => i !== idx);
+                                  onSaveOrder(order.userName, updated);
+                                }}
+                                className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors inline-flex items-center justify-center"
+                                title="حذف هذا الصنف من الطلب فوراً"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </td>
                           </tr>
                         ))
@@ -413,7 +428,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                                   type="button"
                                   onClick={() => handleRemoveEditRow(idx)}
                                   className="p-1 rounded hover:bg-rose-900/40 text-rose-300 transition-colors inline-flex items-center justify-center"
-                                  title="حذف هذا الصنف من الطلب"
+                                  title="حذف هذا الصنف من الطلب فوراً"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>

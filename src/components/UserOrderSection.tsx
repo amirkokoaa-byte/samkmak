@@ -59,12 +59,10 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
   const [currentItems, setCurrentItems] = useState<OrderItem[]>([]);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Keep selectedUser valid if users list changes
+  // Keep selectedUser valid if selected user was deleted
   useEffect(() => {
-    if (!selectedUser && users.length > 0) {
-      handleSelectUser(users[0]);
-    } else if (selectedUser && !users.includes(selectedUser) && users.length > 0) {
-      handleSelectUser(users[0]);
+    if (selectedUser && !users.includes(selectedUser)) {
+      handleSelectUser('');
     }
   }, [users, selectedUser]);
 
@@ -224,6 +222,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
               onChange={(e) => handleSelectUser(e.target.value)}
               className="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-slate-600 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer pr-10"
             >
+              <option value="">-- اضغط لاختيار اسم العميل --</option>
               {users.map((name) => {
                 const userHasOrder = orders[name]?.items && orders[name].items.length > 0;
                 return (
@@ -249,8 +248,24 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
       </div>
 
       {/* 2. Order Form / Status Box */}
-      {selectedUser ? (
-        hasRegisteredOrder ? (
+      {!selectedUser ? (
+        /* Empty State: NO items shown until customer name is selected from dropdown */
+        <div className="pt-6 pb-2 text-center animate-in fade-in duration-150">
+          <div className="max-w-md mx-auto p-6 bg-slate-950/40 border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400">
+              <User className="w-6 h-6 text-blue-400/80" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-slate-200">
+                يرجى اختيار اسم العميل للبدء
+              </h3>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                اضغط على القائمة المنسدلة بالأعلى واختر اسم العميل لتسجيل أو عرض أصناف الطلب
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : hasRegisteredOrder ? (
           /* When order is registered: HIDE table here and show confirmed banner */
           <div className="pt-5 animate-in fade-in duration-150">
             <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-6 text-center space-y-4">
@@ -519,13 +534,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
               </div>
             </div>
           </div>
-        )
-      ) : (
-        <div className="p-8 text-center text-slate-500 text-xs flex flex-col items-center justify-center space-y-2">
-          <Info className="w-5 h-5 text-slate-600" />
-          <span>يرجى اختيار اسم العميل من القائمة أعلاه لبدء تسجيل أو تعديل الطلب</span>
-        </div>
-      )}
+        )}
 
       {/* Modal: Add New Name Popup */}
       {isAddNameModalOpen && (

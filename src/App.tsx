@@ -17,13 +17,13 @@ export default function App() {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [archiveSuccessMsg, setArchiveSuccessMsg] = useState<string | null>(null);
-  const [selectedUser, setSelectedUser] = useState<string>('أمير');
+  const [selectedUser, setSelectedUser] = useState<string>('');
   const [dashboardEditingUser, setDashboardEditingUser] = useState<string | null>(null);
 
-  // Keep selectedUser valid if users list changes
+  // Keep selectedUser valid if user was deleted
   useEffect(() => {
-    if (!selectedUser && appState.users.length > 0) {
-      setSelectedUser(appState.users[0]);
+    if (selectedUser && !appState.users.includes(selectedUser)) {
+      setSelectedUser('');
     }
   }, [appState.users, selectedUser]);
 

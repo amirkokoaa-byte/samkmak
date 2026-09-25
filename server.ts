@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import type { AppState, MenuItem, OrderHistoryEntry, OrderItem, UserOrder } from './src/types/index.ts';
+import type { AppState, MenuItem, OrderHistoryEntry, OrderItem } from './src/types/index.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,7 +32,14 @@ const defaultMenuItems: MenuItem[] = [
   { id: 'item-13', name: 'سمك مكاريل وسط سنجاري', pricePerKilo: 145, isShrimp: false, category: 'مكاريل' },
 ];
 
-let state: AppState = {
+interface ServerState extends AppState {
+  version?: number;
+  lastModified?: number;
+}
+
+let state: ServerState = {
+  version: 1,
+  lastModified: Date.now(),
   config: {
     siteTitle: 'مطعم وبحريات الأمير | نظام إدارة الطلبات والفواتير',
     walletNumber: '01023456789',
@@ -63,20 +70,6 @@ let state: AppState = {
         },
       ],
     },
-    'ماهر': {
-      userName: 'ماهر',
-      updatedAt: Date.now(),
-      items: [
-        {
-          id: 'ord-init-3',
-          itemType: 'سمك بوري كبيره سنجاري',
-          count: 1,
-          weightText: '',
-          price: 210,
-          unitPrice: 210,
-        },
-      ],
-    },
   },
   history: {},
 };
@@ -87,7 +80,11 @@ try {
     const raw = fs.readFileSync(STATE_FILE, 'utf-8');
     const parsed = JSON.parse(raw);
     if (parsed && parsed.config && Array.isArray(parsed.users)) {
-      state = parsed;
+      state = {
+        ...parsed,
+        version: (parsed.version || 1) + 1,
+        lastModified: Date.now(),
+      };
       console.log('[Server] Loaded persisted state from disk successfully.');
     }
   }
@@ -107,22 +104,27 @@ function saveStateToDisk() {
 const sseClients = new Set<Response>();
 
 function broadcast(payload: { type: string; data: any }) {
+  state.version = (state.version || 0) + 1;
+  state.lastModified = Date.now();
   saveStateToDisk();
 
-  // 1. WebSocket
-  const message = JSON.stringify(payload);
+  // 1. WebSocket: Send the specific update and the full state for 100% guarantee
+  const specificMessage = JSON.stringify(payload);
+  const fullStateMessage = JSON.stringify({ type: 'INIT_STATE', data: state });
+
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       try {
-        client.send(message);
+        client.send(specificMessage);
+        client.send(fullStateMessage);
       } catch (err) {
         console.error('WebSocket send error:', err);
       }
     }
   });
 
-  // 2. Server-Sent Events (SSE) to all connected phones and browsers
-  const sseMessage = `data: ${message}\n\n`;
+  // 2. Server-Sent Events (SSE): Flush to all connected phones and browsers
+  const sseMessage = `data: ${specificMessage}\n\ndata: ${fullStateMessage}\n\n`;
   sseClients.forEach((res) => {
     try {
       res.write(sseMessage);
@@ -132,20 +134,26 @@ function broadcast(payload: { type: string; data: any }) {
   });
 }
 
-// Server-Sent Events (SSE) stream endpoint
-app.get('/api/events', (req, res) => {
+// Server-Sent Events (SSE) stream endpoint with Nginx unbuffered headers
+app.get('/api/events', (_req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Cache-Control', 'no-cache, no-transform, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Bypass Nginx and Cloud Run proxy buffers immediately!
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.flushHeaders?.();
+
+  // Send initial 2KB padding to immediately bypass any reverse proxy buffer
+  res.write(`: ${' '.repeat(2048)}\n\n`);
 
   // Send current state immediately on connect
   res.write(`data: ${JSON.stringify({ type: 'INIT_STATE', data: state })}\n\n`);
 
   sseClients.add(res);
 
-  // Heartbeat every 20 seconds to keep connection alive through mobile network proxies
+  // Heartbeat every 10 seconds to keep connection alive through mobile network proxies
   const keepAliveInterval = setInterval(() => {
     try {
       res.write(': keepalive\n\n');
@@ -153,17 +161,20 @@ app.get('/api/events', (req, res) => {
       clearInterval(keepAliveInterval);
       sseClients.delete(res);
     }
-  }, 20000);
+  }, 10000);
 
-  req.on('close', () => {
+  _req.on('close', () => {
     clearInterval(keepAliveInterval);
     sseClients.delete(res);
   });
 });
 
-// REST Endpoints for compatibility, immediate fetch and robust mobile updates
+// REST Endpoints with strong anti-caching headers for 100% instant sync
 app.get('/api/state', (_req, res) => {
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
   res.json(state);
 });
 

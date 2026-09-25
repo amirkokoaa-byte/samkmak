@@ -111,9 +111,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const handlePriceChange = (id: string, price: number) => {
-    setLocalMenu((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, pricePerKilo: Math.max(0, price) } : item))
+    const updated = localMenu.map((item) =>
+      item.id === id ? { ...item, pricePerKilo: Math.max(0, price) } : item
     );
+    setLocalMenu(updated);
+    onSaveMenu(updated);
   };
 
   const handleAddNewMenuItem = (e: React.FormEvent) => {

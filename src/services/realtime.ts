@@ -204,12 +204,31 @@ class RealtimeSyncService {
     }
   }
 
-  // Background interval polling (2.5s) to guarantee real-time sync across all mobile devices
+  // Background interval polling (1s) to guarantee real-time sync across all mobile devices
   private startPolling() {
     if (typeof window === 'undefined') return;
+
+    // Fast 1s polling
     setInterval(() => {
       this.fetchStateFallback();
-    }, 2500);
+    }, 1000);
+
+    // Instant sync when user switches tab or unlocks mobile phone
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        this.fetchStateFallback();
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      this.fetchStateFallback();
+    });
+
+    window.addEventListener('online', () => {
+      this.connectWebSocket();
+      this.initSSE();
+      this.fetchStateFallback();
+    });
   }
 
   private connectWebSocket() {
@@ -260,7 +279,13 @@ class RealtimeSyncService {
 
   private async fetchStateFallback() {
     try {
-      const res = await fetch('/api/state', { cache: 'no-store' });
+      const res = await fetch(`/api/state?_t=${Date.now()}&_r=${Math.random()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         if (data && data.config && Array.isArray(data.users)) {

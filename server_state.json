@@ -1,0 +1,132 @@
+{
+  "config": {
+    "siteTitle": "مطعم وبحريات الأمير | نظام إدارة الطلبات والفواتير",
+    "walletNumber": "01023456789",
+    "instapayNumber": "amir.seafood@instapay"
+  },
+  "users": [
+    "أمير",
+    "ماهر",
+    "كرم",
+    "ياسر",
+    "إسلام"
+  ],
+  "menuItems": [
+    {
+      "id": "item-1",
+      "name": "سمكه بلطي كبيره سنجاري",
+      "pricePerKilo": 130,
+      "isShrimp": false,
+      "category": "بلطي"
+    },
+    {
+      "id": "item-2",
+      "name": "سمكه بلطي وسط سنجاري",
+      "pricePerKilo": 115,
+      "isShrimp": false,
+      "category": "بلطي"
+    },
+    {
+      "id": "item-3",
+      "name": "سمكه بلطي كبيره رده",
+      "pricePerKilo": 130,
+      "isShrimp": false,
+      "category": "بلطي"
+    },
+    {
+      "id": "item-4",
+      "name": "سمك بوري كبيره سنجاري",
+      "pricePerKilo": 210,
+      "isShrimp": false,
+      "category": "بوري"
+    },
+    {
+      "id": "item-5",
+      "name": "سمك بوري وسط سنجاري",
+      "pricePerKilo": 185,
+      "isShrimp": false,
+      "category": "بوري"
+    },
+    {
+      "id": "item-6",
+      "name": "سمك بوري كبير رده مقفوله",
+      "pricePerKilo": 210,
+      "isShrimp": false,
+      "category": "بوري"
+    },
+    {
+      "id": "item-7",
+      "name": "جمبري طاجن",
+      "pricePerKilo": 420,
+      "isShrimp": true,
+      "category": "جمبري"
+    },
+    {
+      "id": "item-8",
+      "name": "جمبري مشويه",
+      "pricePerKilo": 420,
+      "isShrimp": true,
+      "category": "جمبري"
+    },
+    {
+      "id": "item-9",
+      "name": "جمبري مقلي",
+      "pricePerKilo": 420,
+      "isShrimp": true,
+      "category": "جمبري"
+    },
+    {
+      "id": "item-10",
+      "name": "سمك مكرونه كبير مقلي",
+      "pricePerKilo": 170,
+      "isShrimp": false,
+      "category": "مكرونة"
+    },
+    {
+      "id": "item-11",
+      "name": "سمك مكرونه وسط مقلي",
+      "pricePerKilo": 150,
+      "isShrimp": false,
+      "category": "مكرونة"
+    },
+    {
+      "id": "item-12",
+      "name": "سمك مكاريل كبير سنجاري",
+      "pricePerKilo": 160,
+      "isShrimp": false,
+      "category": "مكاريل"
+    },
+    {
+      "id": "item-13",
+      "name": "سمك مكاريل وسط سنجاري",
+      "pricePerKilo": 145,
+      "isShrimp": false,
+      "category": "مكاريل"
+    }
+  ],
+  "orders": {
+    "أمير": {
+      "userName": "أمير",
+      "items": [
+        {
+          "id": "ord-init-1",
+          "itemType": "سمكه بلطي كبيره سنجاري",
+          "count": 2,
+          "weightText": "",
+          "price": 260,
+          "unitPrice": 130
+        },
+        {
+          "id": "ord-init-2",
+          "itemType": "جمبري مشويه",
+          "count": 1,
+          "weightText": "نصف كيلو",
+          "price": 210,
+          "unitPrice": 420
+        }
+      ],
+      "updatedAt": 1790333643296
+    }
+  },
+  "history": {}
+}
