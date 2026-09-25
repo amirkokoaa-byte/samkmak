@@ -218,6 +218,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <select
+              id="user-name-select"
               value={selectedUser}
               onChange={(e) => handleSelectUser(e.target.value)}
               className="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-slate-600 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer pr-10"
@@ -398,6 +399,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                           {/* 2. Item Type */}
                           <td className="py-1.5 px-1 sm:px-3">
                             <select
+                              id={index === 0 ? 'item-type-select' : undefined}
                               value={item.itemType}
                               onChange={(e) => handleItemTypeChange(index, e.target.value)}
                               className="w-full rounded px-1 sm:px-2 py-1 text-[10px] sm:text-xs font-medium cursor-pointer truncate"
@@ -413,6 +415,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                           {/* 3. Count Dropdown */}
                           <td className="py-1.5 px-0.5 sm:px-3 text-center">
                             <select
+                              id={index === 0 ? 'item-count-select' : undefined}
                               value={item.count}
                               onChange={(e) => handleCountChange(index, Number(e.target.value))}
                               className="w-full rounded px-0.5 sm:px-1.5 py-1 text-center font-mono-num font-bold text-[10px] sm:text-xs cursor-pointer"
@@ -430,6 +433,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                             {isShrimp ? (
                               <div className="relative w-full">
                                 <select
+                                  id={index === 0 ? 'item-quantity-select' : undefined}
                                   value={item.weightText || 'نصف كيلو'}
                                   onChange={(e) => handleWeightChange(index, e.target.value)}
                                   className="w-full rounded px-0.5 sm:px-1 py-1 text-[10px] sm:text-xs text-center font-bold cursor-pointer"
@@ -441,7 +445,14 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                               </div>
                             ) : (
                               <div className="flex items-center justify-center text-[9px] sm:text-[11px] opacity-70 select-none">
-                                <span className="truncate">—</span>
+                                <input
+                                  id={index === 0 ? 'item-quantity-select' : undefined}
+                                  type="text"
+                                  disabled
+                                  readOnly
+                                  value="—"
+                                  className="w-full text-center bg-transparent border-0 opacity-70 cursor-not-allowed text-[10px] sm:text-xs"
+                                />
                               </div>
                             )}
                           </td>
@@ -514,6 +525,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                   </div>
 
                   <button
+                    id="save-order-btn"
                     type="button"
                     onClick={handleSaveOrder}
                     className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-lg text-xs transition-colors shadow-md shrink-0"

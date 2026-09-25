@@ -298,7 +298,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-medium">
+                    <tbody id="main-orders-table-body" className="divide-y divide-slate-800/60 font-medium">
                       {!isEditingThisOrder ? (
                         /* Read-only Table Rows with Instant Delete */
                         order.items.map((item, idx) => (

@@ -5,27 +5,29 @@ import {
   onValue,
   set,
   get,
+  push,
+  remove,
   Database,
 } from 'firebase/database';
 import type { AppConfig, AppState, MenuItem, OrderItem } from './types/index.ts';
 
 // Read config from Vite environment variables (protecting credentials from git)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.apiKey : ''),
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.authDomain : ''),
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.databaseURL : ''),
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.projectId : ''),
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.storageBucket : ''),
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.messagingSenderId : ''),
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.appId : ''),
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || (typeof window !== 'undefined' ? (window as any).__FIREBASE_CONFIG__?.measurementId : ''),
 };
 
 let database: Database | null = null;
 let isFirebaseConfigured = false;
 
 // Check if credentials are provided
-if (firebaseConfig.apiKey && firebaseConfig.databaseURL) {
+if (firebaseConfig.apiKey && (firebaseConfig.databaseURL || firebaseConfig.projectId)) {
   try {
     const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     database = getDatabase(app);
@@ -37,7 +39,52 @@ if (firebaseConfig.apiKey && firebaseConfig.databaseURL) {
   console.info('[Firebase] Config keys not detected in environment, using WebSocket/local sync.');
 }
 
-export { database, isFirebaseConfigured };
+export { database, database as db, isFirebaseConfigured, ref, set, push, onValue, remove };
+
+// --- 1. إرسال الطلبات إلى Firebase (لا تحفظها محلياً فقط) ---
+export function saveOrderToFirebase(
+  userName: string,
+  itemType: string,
+  itemCount: number,
+  itemQuantity: string,
+  itemPrice: number
+) {
+  if (!database) {
+    console.warn('[Firebase] Database not initialized');
+    return;
+  }
+  const ordersRef = ref(database, 'orders');
+  const newOrderRef = push(ordersRef);
+
+  set(newOrderRef, {
+    name: userName,
+    type: itemType,
+    count: itemCount,
+    quantity: itemQuantity,
+    price: itemPrice,
+    timestamp: Date.now(),
+  })
+    .then(() => {
+      console.log('تم إرسال الطلب بنجاح إلى Firebase!');
+    })
+    .catch((error) => {
+      console.error('حدث خطأ أثناء الحفظ:', error);
+    });
+}
+
+// --- 3. دالة الحذف الفوري (Instant Delete) ---
+export function deleteOrder(orderId: string) {
+  if (!database) return;
+  const orderToDeleteRef = ref(database, `orders/${orderId}`);
+  remove(orderToDeleteRef)
+    .then(() => console.log('تم الحذف بنجاح من قاعدة البيانات'))
+    .catch((error) => console.error('خطأ في الحذف:', error));
+}
+
+if (typeof window !== 'undefined') {
+  (window as any).deleteOrder = deleteOrder;
+  (window as any).saveOrderToFirebase = saveOrderToFirebase;
+}
 
 const DB_ROOT = 'seafood_system';
 

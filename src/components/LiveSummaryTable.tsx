@@ -77,7 +77,7 @@ export const LiveSummaryTable: React.FC<LiveSummaryTableProps> = ({ orders }) =>
                 <th className="py-2.5 px-3 w-32 text-left font-bold text-slate-300">إجمالي القيمة</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/70 font-medium">
+            <tbody id="summary-table-body" className="divide-y divide-slate-800/70 font-medium">
               {summaryList.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-6 text-center text-slate-500">

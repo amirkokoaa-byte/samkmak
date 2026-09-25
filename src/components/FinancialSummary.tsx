@@ -44,8 +44,8 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ orders }) =>
             إجمالي المبلغ المطلوب دفعه:
           </span>
           <div className="flex items-baseline gap-2 font-mono-num">
-            <span className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
-              {grandTotal.toLocaleString()}
+            <span id="grand-total-display" className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
+              {grandTotal.toLocaleString()} ج.م
             </span>
             <span className="text-base sm:text-lg font-bold text-slate-200 font-sans">
               (ج . م)
