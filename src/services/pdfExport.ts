@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import type { AppState, OrderItem } from '../types/index.ts';
 
 export interface ItemSummaryAggregation {
@@ -34,14 +34,8 @@ export function calculateSummary(orders: Record<string, { userName: string; item
   return Array.from(map.values()).sort((a, b) => b.totalCount - a.totalCount);
 }
 
-// Generate printable HTML document for 100% crystal-clear Arabic rendering and PDF printing
-export function printDocument(type: 'detailed' | 'summary', state: AppState) {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    alert('يرجى السماح بالنوافذ المنبثقة للطباعة أو تحميل الـ PDF');
-    return;
-  }
-
+// بناء محتوى التقرير باللغة العربية بالكامل
+export function getReportBodyHTML(type: 'detailed' | 'summary', state: AppState): string {
   const dateStr = new Date().toLocaleDateString('ar-EG', {
     weekday: 'long',
     year: 'numeric',
@@ -55,51 +49,50 @@ export function printDocument(type: 'detailed' | 'summary', state: AppState) {
     return acc + order.items.reduce((s, it) => s + (Number(it.price) || 0), 0);
   }, 0);
 
-  let bodyContent = '';
-
   if (type === 'detailed') {
     const userOrders = Object.values(state.orders).filter((u) => u.items.length > 0);
+    const totalItemsCount = userOrders.reduce((sum, o) => sum + o.items.reduce((s, it) => s + (Number(it.count) || 0), 0), 0);
 
-    bodyContent = `
+    return `
       <div class="header">
         <h1>${state.config.siteTitle}</h1>
         <p class="subtitle">تقرير تفصيلي بطلبات وفواتير الأسماء المسجلة</p>
-        <p class="date">تاريخ التقرير: ${dateStr}</p>
+        <p class="date">تاريخ ووقت إصدار التقرير: ${dateStr}</p>
       </div>
 
       <div class="wallets-box">
-        <div><strong>المحفظة الإلكترونية:</strong> ${state.config.walletNumber}</div>
+        <div><strong>المحفظة الإلكترونية (كاش):</strong> ${state.config.walletNumber}</div>
         <div><strong>انستا باي (InstaPay):</strong> ${state.config.instapayNumber}</div>
       </div>
 
-      ${userOrders.length === 0 ? '<p style="text-align: center; color: #666; margin: 30px 0;">لا توجد طلبات مسجلة حالياً</p>' : ''}
+      ${userOrders.length === 0 ? '<p style="text-align: center; color: #64748b; margin: 30px 0; font-size: 14px;">لا توجد طلبات مسجلة حالياً</p>' : ''}
 
-      ${userOrders.map((order, idx) => {
+      ${userOrders.map((order) => {
         const userTotal = order.items.reduce((s, it) => s + (Number(it.price) || 0), 0);
         return `
           <div class="user-block">
             <div class="user-header">
-              <span><strong>العميل / الاسم:</strong> ${order.userName}</span>
-              <span><strong>إجمالي حساب الاسم:</strong> ${userTotal.toLocaleString()} ج . م</span>
+              <span>👤 <strong>اسم العميل:</strong> ${order.userName}</span>
+              <span>💰 <strong>إجمالي الحساب:</strong> ${userTotal.toLocaleString()} ج . م</span>
             </div>
             <table>
               <thead>
                 <tr>
-                  <th style="width: 40px;">#</th>
-                  <th>الصنف (النوع)</th>
-                  <th style="width: 70px;">العدد</th>
-                  <th style="width: 140px;">الكمية / الوزن</th>
-                  <th style="width: 100px;">القيمة (السعر)</th>
+                  <th style="width: 40px; text-align: center;">م</th>
+                  <th>الصنف (نوع السمك / المأكولات)</th>
+                  <th style="width: 70px; text-align: center;">العدد</th>
+                  <th style="width: 140px; text-align: center;">الكمية / الوزن</th>
+                  <th style="width: 110px; text-align: left;">القيمة (السعر)</th>
                 </tr>
               </thead>
               <tbody>
                 ${order.items.map((it, i) => `
                   <tr>
-                    <td>${i + 1}</td>
+                    <td style="text-align: center; font-weight: bold;">${i + 1}</td>
                     <td><strong>${it.itemType}</strong></td>
-                    <td style="text-align:center;">${it.count}</td>
-                    <td>${it.weightText || '—'}</td>
-                    <td style="text-align:left; font-weight:bold;">${Number(it.price).toLocaleString()} ج.م</td>
+                    <td style="text-align: center; font-weight: bold;">${it.count}</td>
+                    <td style="text-align: center;">${it.weightText || '—'}</td>
+                    <td style="text-align: left; font-weight: bold;">${Number(it.price).toLocaleString()} ج.م</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -109,12 +102,12 @@ export function printDocument(type: 'detailed' | 'summary', state: AppState) {
       }).join('')}
 
       <div class="grand-total-box">
-        <span>قيمة جميع الأسماء (الإجمالي العام):</span>
-        <span class="price-val">${totalAllNames.toLocaleString()} (ج . م)</span>
+        <span>إجمالي عدد الأصناف والوجبات: <strong>${totalItemsCount}</strong></span>
+        <span>قيمة جميع الأسماء (الإجمالي العام): <span class="price-val">${totalAllNames.toLocaleString()} ج . م</span></span>
       </div>
 
       <div class="footer">
-        مع تحيات المطور Amir Lamay
+        مع تحيات إدارة ${state.config.siteTitle} — برمجة وتطوير Amir Lamay
       </div>
     `;
   } else {
@@ -122,52 +115,64 @@ export function printDocument(type: 'detailed' | 'summary', state: AppState) {
     const summary = calculateSummary(state.orders);
     const totalItemsCount = summary.reduce((acc, s) => acc + s.totalCount, 0);
 
-    bodyContent = `
+    return `
       <div class="header">
         <h1>${state.config.siteTitle}</h1>
         <p class="subtitle">ملخص تجميع وتجهيز الأصناف والكميات (المطبخ والشواية)</p>
-        <p class="date">تاريخ التقرير: ${dateStr}</p>
+        <p class="date">تاريخ ووقت إصدار التقرير: ${dateStr}</p>
       </div>
 
       <div class="wallets-box">
-        <div><strong>المحفظة الإلكترونية:</strong> ${state.config.walletNumber}</div>
+        <div><strong>المحفظة الإلكترونية (كاش):</strong> ${state.config.walletNumber}</div>
         <div><strong>انستا باي (InstaPay):</strong> ${state.config.instapayNumber}</div>
       </div>
 
       <table>
         <thead>
           <tr>
-            <th style="width: 45px;">م</th>
-            <th>الصنف (نوع السمك / المأكولات)</th>
-            <th style="width: 100px;">إجمالي العدد</th>
-            <th>تفاصيل الأوزان المسجلة</th>
-            <th style="width: 130px;">إجمالي القيمة</th>
+            <th style="width: 45px; text-align: center;">م</th>
+            <th>الصنف ونوع الطهي (المأكولات البحرية)</th>
+            <th style="width: 100px; text-align: center;">إجمالي العدد</th>
+            <th>تفاصيل الأوزان المسجلة (الجمبري)</th>
+            <th style="width: 130px; text-align: left;">إجمالي القيمة</th>
           </tr>
         </thead>
         <tbody>
-          ${summary.length === 0 ? '<tr><td colspan="5" style="text-align:center;">لا توجد أصناف في الطلبات</td></tr>' : ''}
+          ${summary.length === 0 ? '<tr><td colspan="5" style="text-align:center; padding: 20px; color: #64748b;">لا توجد أصناف مطلوبة حالياً</td></tr>' : ''}
           ${summary.map((item, idx) => `
             <tr>
-              <td>${idx + 1}</td>
+              <td style="text-align: center; font-weight: bold;">${idx + 1}</td>
               <td><strong>${item.itemType}</strong></td>
-              <td style="text-align:center; font-size: 16px; font-weight: bold;">${item.totalCount}</td>
+              <td style="text-align: center; font-size: 14px; font-weight: bold; color: #1d4ed8;">${item.totalCount}</td>
               <td>${item.weights.length > 0 ? item.weights.join(' ، ') : '—'}</td>
-              <td style="text-align:left; font-weight:bold;">${item.totalPrice.toLocaleString()} ج.م</td>
+              <td style="text-align: left; font-weight: bold;">${item.totalPrice.toLocaleString()} ج.م</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
 
       <div class="grand-total-box">
-        <span>إجمالي عدد القطع/الوجبات: <strong>${totalItemsCount}</strong></span>
-        <span>قيمة جميع الأسماء: <span class="price-val">${totalAllNames.toLocaleString()} (ج . م)</span></span>
+        <span>إجمالي القطع والوجبات المطلوبة: <strong>${totalItemsCount}</strong></span>
+        <span>قيمة جميع الأسماء (الإجمالي العام): <span class="price-val">${totalAllNames.toLocaleString()} ج . م</span></span>
       </div>
 
       <div class="footer">
-        مع تحيات المطور Amir Lamay
+        مع تحيات إدارة ${state.config.siteTitle} — برمجة وتطوير Amir Lamay
       </div>
     `;
   }
+}
+
+// معاينة وطباعة المستند في نافذة متصفح باللغة العربية
+export function printDocument(type: 'detailed' | 'summary', state: AppState) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    // إذا حجب المتصفح النافذة المنبثقة، نقوم بالتنزيل المباشر كـ PDF تلقائياً
+    generateDirectJsPDF(type, state);
+    return;
+  }
+
+  const bodyContent = getReportBodyHTML(type, state);
 
   const html = `
     <!DOCTYPE html>
@@ -181,54 +186,60 @@ export function printDocument(type: 'detailed' | 'summary', state: AppState) {
       <style>
         @page {
           size: A4;
-          margin: 15mm 12mm 15mm 12mm;
+          margin: 12mm 12mm 12mm 12mm;
         }
         * {
           box-sizing: border-box;
+          font-family: 'Cairo', system-ui, -apple-system, sans-serif;
         }
         body {
-          font-family: 'Cairo', system-ui, sans-serif;
           margin: 0;
           padding: 20px;
           color: #0f172a;
           background: #ffffff;
+          direction: rtl;
+          text-align: right;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
         .header {
           text-align: center;
           border-bottom: 2px solid #0f172a;
-          padding-bottom: 15px;
-          margin-bottom: 15px;
+          padding-bottom: 12px;
+          margin-bottom: 14px;
         }
         .header h1 {
           margin: 0 0 5px 0;
-          font-size: 22px;
+          font-size: 20px;
           color: #0f172a;
+          font-weight: 800;
         }
         .subtitle {
           margin: 0 0 5px 0;
-          font-size: 14px;
-          color: #475569;
-          font-weight: 600;
+          font-size: 13px;
+          color: #334155;
+          font-weight: 700;
         }
         .date {
           margin: 0;
-          font-size: 12px;
+          font-size: 11px;
           color: #64748b;
         }
         .wallets-box {
           display: flex;
           justify-content: space-between;
-          background: #f1f5f9;
+          background: #f8fafc;
           border: 1px solid #cbd5e1;
-          padding: 8px 16px;
+          padding: 8px 14px;
           border-radius: 6px;
-          font-size: 13px;
-          margin-bottom: 20px;
+          font-size: 12px;
+          margin-bottom: 16px;
         }
         .user-block {
-          margin-bottom: 22px;
+          margin-bottom: 16px;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          overflow: hidden;
           page-break-inside: avoid;
         }
         .user-header {
@@ -236,52 +247,52 @@ export function printDocument(type: 'detailed' | 'summary', state: AppState) {
           justify-content: space-between;
           background: #1e293b;
           color: #ffffff;
-          padding: 8px 14px;
-          border-radius: 6px 6px 0 0;
-          font-size: 14px;
+          padding: 7px 12px;
+          font-size: 13px;
+          font-weight: bold;
         }
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 8px;
-          font-size: 13px;
+          font-size: 12px;
         }
         th, td {
           border: 1px solid #cbd5e1;
-          padding: 7px 10px;
+          padding: 6px 10px;
           text-align: right;
         }
         th {
-          background-color: #f8fafc;
+          background: #f1f5f9;
           color: #1e293b;
           font-weight: 700;
         }
-        tr:nth-child(even) td {
-          background-color: #f8fafc;
+        tr:nth-child(even) {
+          background: #f8fafc;
         }
         .grand-total-box {
-          margin-top: 25px;
+          background: #0f172a;
+          color: #ffffff;
+          padding: 10px 16px;
+          border-radius: 6px;
+          margin-top: 16px;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 12px 18px;
-          background: #0f172a;
-          color: #ffffff;
-          border-radius: 8px;
-          font-size: 16px;
+          font-size: 13px;
           font-weight: 700;
         }
-        .price-val {
-          font-size: 20px;
+        .grand-total-box .price-val {
           color: #38bdf8;
+          font-size: 16px;
+          font-weight: 800;
         }
         .footer {
-          margin-top: 35px;
+          margin-top: 20px;
           text-align: center;
-          font-size: 13px;
+          font-size: 11px;
           color: #64748b;
           border-top: 1px dashed #cbd5e1;
-          padding-top: 12px;
+          padding-top: 10px;
         }
         .print-btn-bar {
           background: #0f172a;
@@ -315,16 +326,10 @@ export function printDocument(type: 'detailed' | 'summary', state: AppState) {
     </head>
     <body>
       <div class="print-btn-bar">
-        <span>جاهز للطباعة أو الحفظ كملف PDF (اضغط طباعة ثم اختر Save as PDF)</span>
+        <span>جاهز للطباعة أو الحفظ كملف PDF باللغة العربية بالكامل</span>
         <button class="print-btn" onclick="window.print()">طباعة / حفظ PDF 🖨️</button>
       </div>
       ${bodyContent}
-      <script>
-        // Auto trigger print after render
-        setTimeout(() => {
-          // window.print();
-        }, 600);
-      </script>
     </body>
     </html>
   `;
@@ -334,71 +339,176 @@ export function printDocument(type: 'detailed' | 'summary', state: AppState) {
   printWindow.document.close();
 }
 
-// Fallback jsPDF direct download
-export function generateDirectJsPDF(type: 'detailed' | 'summary', state: AppState) {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
+// توليد وتحميل ملف PDF فوري باللغة العربية 100% بدون أي رموز غير مفهومة
+export async function generateDirectJsPDF(type: 'detailed' | 'summary', state: AppState): Promise<void> {
+  const container = document.createElement('div');
+  container.id = 'arabic-pdf-render-temp';
+  container.style.position = 'fixed';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  container.style.width = '794px'; // عرض ورقة A4 بدقة 96 DPI
+  container.style.backgroundColor = '#ffffff';
+  container.style.color = '#0f172a';
+  container.style.direction = 'rtl';
+  container.style.textAlign = 'right';
+  container.style.fontFamily = "'Cairo', system-ui, -apple-system, sans-serif";
+  container.style.padding = '24px 20px';
+  container.style.boxSizing = 'border-box';
 
-  const title = type === 'detailed' ? 'Detailed Orders Report' : 'Items Summary Report';
-  doc.setFontSize(16);
-  doc.text(title, 105, 18, { align: 'center' });
-  doc.setFontSize(10);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 24, { align: 'center' });
-  doc.text(`Wallet: ${state.config.walletNumber} | InstaPay: ${state.config.instapayNumber}`, 105, 30, { align: 'center' });
+  container.innerHTML = `
+    <style>
+      #arabic-pdf-render-temp * {
+        box-sizing: border-box;
+        font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+      }
+      #arabic-pdf-render-temp .header {
+        text-align: center;
+        border-bottom: 2px solid #0f172a;
+        padding-bottom: 12px;
+        margin-bottom: 14px;
+      }
+      #arabic-pdf-render-temp .header h1 {
+        margin: 0 0 6px 0;
+        font-size: 20px;
+        color: #0f172a;
+        font-weight: 800;
+      }
+      #arabic-pdf-render-temp .subtitle {
+        margin: 0 0 6px 0;
+        font-size: 13px;
+        color: #334155;
+        font-weight: 700;
+      }
+      #arabic-pdf-render-temp .date {
+        margin: 0;
+        font-size: 11px;
+        color: #64748b;
+      }
+      #arabic-pdf-render-temp .wallets-box {
+        display: flex;
+        justify-content: space-between;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        padding: 8px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        margin-bottom: 16px;
+        color: #1e293b;
+      }
+      #arabic-pdf-render-temp .user-block {
+        margin-bottom: 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      #arabic-pdf-render-temp .user-header {
+        display: flex;
+        justify-content: space-between;
+        background: #1e293b;
+        color: #ffffff;
+        padding: 7px 12px;
+        font-size: 13px;
+        font-weight: bold;
+      }
+      #arabic-pdf-render-temp table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      #arabic-pdf-render-temp th, #arabic-pdf-render-temp td {
+        border: 1px solid #cbd5e1;
+        padding: 6px 8px;
+        text-align: right;
+      }
+      #arabic-pdf-render-temp th {
+        background: #f1f5f9;
+        color: #1e293b;
+        font-weight: 700;
+      }
+      #arabic-pdf-render-temp tr:nth-child(even) {
+        background: #f8fafc;
+      }
+      #arabic-pdf-render-temp .grand-total-box {
+        background: #0f172a;
+        color: #ffffff;
+        padding: 10px 16px;
+        border-radius: 6px;
+        margin-top: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      #arabic-pdf-render-temp .grand-total-box .price-val {
+        color: #38bdf8;
+        font-size: 16px;
+        font-weight: 800;
+      }
+      #arabic-pdf-render-temp .footer {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 11px;
+        color: #64748b;
+        border-top: 1px dashed #cbd5e1;
+        padding-top: 10px;
+      }
+    </style>
+    ${getReportBodyHTML(type, state)}
+  `;
 
-  if (type === 'detailed') {
-    const tableData: any[] = [];
-    Object.values(state.orders).forEach((order) => {
-      order.items.forEach((it, idx) => {
-        tableData.push([
-          idx === 0 ? order.userName : '',
-          idx + 1,
-          it.itemType,
-          it.count,
-          it.weightText || '—',
-          `${it.price} EGP`,
-        ]);
-      });
+  document.body.appendChild(container);
+
+  try {
+    if (document.fonts) {
+      await document.fonts.ready;
+    }
+
+    const canvas = await html2canvas(container, {
+      scale: 2, // دقة عالية لظهور الخط العربي بنقاء فائق
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
     });
 
-    autoTable(doc, {
-      startY: 36,
-      head: [['User', '#', 'Item', 'Qty', 'Weight', 'Price']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [15, 23, 42] },
-      styles: { font: 'helvetica', fontSize: 9 },
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
     });
-  } else {
-    const summary = calculateSummary(state.orders);
-    const tableData = summary.map((s, i) => [
-      i + 1,
-      s.itemType,
-      s.totalCount,
-      s.weights.join(', ') || '—',
-      `${s.totalPrice} EGP`,
-    ]);
 
-    autoTable(doc, {
-      startY: 36,
-      head: [['#', 'Item Type', 'Total Count', 'Weights', 'Total Price']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [15, 23, 42] },
-      styles: { font: 'helvetica', fontSize: 9 },
-    });
+    const pageWidth = 210; // A4 width in mm
+    const pageHeight = 297; // A4 height in mm
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 0) {
+      position -= pageHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pageHeight;
+    }
+
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const fileName = type === 'detailed' 
+      ? `تقرير_الطلبات_التفصيلي_${todayDate}.pdf` 
+      : `ملخص_تجهيز_الأصناف_${todayDate}.pdf`;
+
+    pdf.save(fileName);
+  } catch (err) {
+    console.error('خطأ أثناء إنشاء ملف PDF العربي:', err);
+    printDocument(type, state);
+  } finally {
+    if (document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
   }
-
-  // Footer
-  const pageCount = (doc as any).internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.text('مع تحيات المطور Amir Lamay', 105, 290, { align: 'center' });
-  }
-
-  doc.save(`${type === 'detailed' ? 'orders_detailed' : 'orders_summary'}_${Date.now()}.pdf`);
 }

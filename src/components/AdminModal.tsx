@@ -521,7 +521,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"
                         >
                           <FileDown className="w-3.5 h-3.5" />
-                          <span>تحميل ملف jsPDF مباشر</span>
+                          <span>تحميل ملف PDF فوري (عربي بالكامل)</span>
                         </button>
                       </div>
                     </div>
@@ -556,7 +556,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium py-1.5 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"
                         >
                           <FileDown className="w-3.5 h-3.5" />
-                          <span>تحميل ملف jsPDF مباشر</span>
+                          <span>تحميل ملف PDF فوري (عربي بالكامل)</span>
                         </button>
                       </div>
                     </div>
