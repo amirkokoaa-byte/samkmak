@@ -16,6 +16,8 @@ import type { MenuItem, OrderItem, UserOrder } from '../types/index.ts';
 
 interface UserOrderSectionProps {
   users: string[];
+  selectedUser?: string;
+  onSelectUser?: (name: string) => void;
   onAddUser: (name: string) => void;
   menuItems: MenuItem[];
   isAdmin: boolean;
@@ -26,6 +28,8 @@ interface UserOrderSectionProps {
 
 export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
   users,
+  selectedUser: controlledSelectedUser,
+  onSelectUser,
   onAddUser,
   menuItems,
   isAdmin,
@@ -33,11 +37,30 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
   orders,
   onSaveUserOrder,
 }) => {
-  const [selectedUser, setSelectedUser] = useState<string>('');
+  const [internalSelectedUser, setInternalSelectedUser] = useState<string>(() => users[0] || 'أمير');
+  const selectedUser = controlledSelectedUser !== undefined ? controlledSelectedUser : internalSelectedUser;
+
+  const handleSelectUser = (name: string) => {
+    if (onSelectUser) {
+      onSelectUser(name);
+    } else {
+      setInternalSelectedUser(name);
+    }
+  };
+
   const [isAddNameModalOpen, setIsAddNameModalOpen] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [currentItems, setCurrentItems] = useState<OrderItem[]>([]);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Keep selectedUser valid if users list changes
+  useEffect(() => {
+    if (!selectedUser && users.length > 0) {
+      handleSelectUser(users[0]);
+    } else if (selectedUser && !users.includes(selectedUser) && users.length > 0) {
+      handleSelectUser(users[0]);
+    }
+  }, [users, selectedUser]);
 
   // When selectedUser changes, load their existing order or create one empty row
   useEffect(() => {
@@ -72,7 +95,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
     const trimmed = newUserName.trim();
     if (trimmed) {
       onAddUser(trimmed);
-      setSelectedUser(trimmed);
+      handleSelectUser(trimmed);
       setNewUserName('');
       setIsAddNameModalOpen(false);
     }
@@ -190,7 +213,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
   const userTotal = currentItems.reduce((acc, row) => acc + (Number(row.price) || 0), 0);
 
   return (
-    <section className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl mb-8">
+    <section id="order-form-section" className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-6 shadow-xl mb-8">
       {/* 1. Name Selection Row */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pb-5 border-b border-slate-800">
         <div className="flex items-center gap-3">
@@ -209,28 +232,24 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
 
         <div className="flex items-center gap-2.5">
           {/* Name Dropdown */}
-          <div className="relative min-w-[200px]">
+          <div className="relative min-w-[180px] sm:min-w-[220px] flex-1 sm:flex-initial">
             <select
               value={selectedUser}
-              onChange={(e) => setSelectedUser(e.target.value)}
+              onChange={(e) => handleSelectUser(e.target.value)}
               className="w-full appearance-none bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors cursor-pointer pl-9"
             >
-              <option value="">-- اختر الاسم لتسجيل الطلب --</option>
-              {users.map((name) => {
-                const count = orders[name]?.items?.length || 0;
-                return (
-                  <option key={name} value={name}>
-                    {name} {count > 0 ? `(${count} أصناف مسجلة)` : ''}
-                  </option>
-                );
-              })}
+              {users.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
             </select>
             <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
               <ChevronDown className="w-4 h-4" />
             </div>
           </div>
 
-          {/* Add (+) Button */}
+          {/* Add Button */}
           <button
             type="button"
             onClick={() => setIsAddNameModalOpen(true)}
@@ -238,14 +257,14 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
             title="إضافة اسم جديد إلى القائمة"
           >
             <Plus className="w-4 h-4" />
-            <span>أضف (+)</span>
+            <span>أضف</span>
           </button>
         </div>
       </div>
 
       {/* 2. Order Form (Visible after selecting a name) */}
       {selectedUser ? (
-        <div className="pt-5 space-y-4 animate-in fade-in duration-150">
+        <div className="pt-4 sm:pt-5 space-y-4 animate-in fade-in duration-150">
           
           {/* Section Sub-Header with Admin Add Item button at top left */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -285,34 +304,34 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
             </div>
           </div>
 
-          {/* Dynamic Table / List */}
+          {/* Dynamic Table / List - Compact for mobile with NO horizontal scroll */}
           <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40">
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
+            <div className="overflow-hidden sm:overflow-x-auto">
+              <table className="w-full text-right text-xs table-fixed sm:table-auto">
                 <thead>
-                  <tr className="bg-slate-950/80 text-slate-400 border-b border-slate-800">
-                    {/* Index (ترقيم) on the far right */}
-                    <th className="py-3 px-3 text-center w-12 font-bold text-slate-300">
+                  <tr className="bg-slate-950/80 text-slate-400 border-b border-slate-800 whitespace-nowrap text-[10px] sm:text-xs">
+                    {/* Index (ترقيم) on far right - hidden on mobile */}
+                    <th className="py-2 px-1 text-center w-8 font-bold text-slate-300 whitespace-nowrap hidden sm:table-cell">
                       م
                     </th>
                     {/* Item Type (النوع) */}
-                    <th className="py-3 px-3 min-w-[220px] font-bold text-slate-300">
-                      النوع (الصنف وطريقة الطهي)
+                    <th className="py-2 px-1 sm:px-3 font-bold text-slate-300 w-[39%] sm:w-auto">
+                      الصنف (النوع)
                     </th>
                     {/* Count (العدد) */}
-                    <th className="py-3 px-3 w-28 text-center font-bold text-slate-300">
-                      العدد (1-10)
+                    <th className="py-2 px-0.5 sm:px-3 text-center font-bold text-slate-300 w-[14%] sm:w-20">
+                      العدد
                     </th>
                     {/* Weight/Quantity (الكمية) */}
-                    <th className="py-3 px-3 min-w-[170px] font-bold text-slate-300">
-                      الكمية / الوزن (خاص بالجمبري)
+                    <th className="py-2 px-1 sm:px-3 text-center font-bold text-slate-300 w-[24%] sm:w-auto">
+                      الكمية / الوزن
                     </th>
                     {/* Value/Price (القيمة/السعر) */}
-                    <th className="py-3 px-3 w-32 font-bold text-slate-300">
-                      القيمة / السعر
+                    <th className="py-2 px-1 sm:px-3 text-left font-bold text-slate-300 w-[17%] sm:w-24">
+                      السعر
                     </th>
                     {/* Actions */}
-                    <th className="py-3 px-3 w-16 text-center font-bold text-slate-300">
+                    <th className="py-2 px-0.5 sm:px-2 text-center font-bold text-slate-300 w-[6%] sm:w-10">
                       حذف
                     </th>
                   </tr>
@@ -325,17 +344,17 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                     return (
                       <tr key={item.id || index} className="hover:bg-slate-800/30 transition-colors">
                         
-                        {/* 1. Index (ترقيم) on far right */}
-                        <td className="py-2.5 px-3 text-center font-mono-num font-bold text-slate-400">
+                        {/* 1. Index (hidden on mobile) */}
+                        <td className="hidden sm:table-cell py-2 px-1 text-center font-mono-num font-bold text-slate-400 text-xs">
                           {index + 1}
                         </td>
 
                         {/* 2. Item Type (النوع) */}
-                        <td className="py-2.5 px-3">
+                        <td className="py-1.5 px-1 sm:px-3">
                           <select
                             value={item.itemType}
                             onChange={(e) => handleItemTypeChange(index, e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                            className="w-full bg-slate-900 border border-slate-700/80 rounded px-1 sm:px-2 py-1 text-[10px] sm:text-xs text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer truncate"
                           >
                             {menuItems.map((menu) => (
                               <option key={menu.id} value={menu.name}>
@@ -346,11 +365,11 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                         </td>
 
                         {/* 3. Count (العدد) Dropdown from 1 to 10 */}
-                        <td className="py-2.5 px-3 text-center">
+                        <td className="py-1.5 px-0.5 sm:px-3 text-center">
                           <select
                             value={item.count}
                             onChange={(e) => handleCountChange(index, Number(e.target.value))}
-                            className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1.5 text-center font-mono-num font-bold text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                            className="w-full bg-slate-900 border border-slate-700/80 rounded px-0.5 sm:px-1.5 py-1 text-center font-mono-num font-bold text-slate-100 text-[10px] sm:text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
                           >
                             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                               <option key={num} value={num}>
@@ -360,60 +379,58 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                           </select>
                         </td>
 
-                        {/* 4. Weight/Quantity (الكمية):
-                            Crucial Constraint: ONLY enabled/unlocked if selected Item Type contains "جمبري".
-                            For all other fish, disabled/hidden/locked. */}
-                        <td className="py-2.5 px-3">
+                        {/* 4. Weight/Quantity (الكمية): Shrimp dropdown */}
+                        <td className="py-1.5 px-1 sm:px-3 text-center">
                           {isShrimp ? (
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={item.weightText}
+                            <div className="relative w-full">
+                              <select
+                                value={item.weightText || 'نصف كيلو'}
                                 onChange={(e) => handleWeightChange(index, e.target.value)}
-                                placeholder="مثال: ربع جرام، نصف كيلو، كيلو..."
-                                className="w-full bg-slate-900 border border-amber-600/70 text-amber-200 placeholder:text-amber-300/40 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
-                              />
+                                className="w-full bg-slate-900 border border-amber-600/70 text-amber-300 rounded px-0.5 sm:px-1 py-1 text-[10px] sm:text-xs text-center font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                              >
+                                <option value="ربع كيلو">ربع كيلو</option>
+                                <option value="نصف كيلو">نصف كيلو</option>
+                                <option value="كيلو">كيلو</option>
+                              </select>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1.5 text-slate-500 text-[11px] bg-slate-900/40 border border-slate-800/80 rounded-lg px-2.5 py-1.5 select-none cursor-not-allowed">
-                              <Lock className="w-3 h-3 text-slate-600 shrink-0" />
-                              <span className="truncate">خاص بالجمبري فقط</span>
+                            <div className="flex items-center justify-center text-slate-500 text-[9px] sm:text-[11px] bg-slate-900/40 border border-slate-800/80 rounded px-1 py-1 select-none cursor-not-allowed">
+                              <span className="truncate">خاص بالجمبري</span>
                             </div>
                           )}
                         </td>
 
-                        {/* 5. Value/Price (القيمة/السعر):
-                            Calculated based on Admin-set price. Locked for regular users, editable if Admin. */}
-                        <td className="py-2.5 px-3">
+                        {/* 5. Value/Price (القيمة/السعر) */}
+                        <td className="py-1.5 px-1 sm:px-3 text-left">
                           {isAdmin ? (
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-0.5 justify-end">
                               <input
                                 type="number"
                                 min="0"
                                 value={item.price}
                                 onChange={(e) => handleAdminPriceOverride(index, Number(e.target.value))}
-                                className="w-20 bg-slate-900 border border-blue-600 rounded px-2 py-1 text-center font-mono-num font-bold text-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                className="w-12 sm:w-16 bg-slate-900 border border-blue-600 rounded px-1 py-0.5 text-center font-mono-num font-bold text-blue-300 text-[10px] sm:text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 title="تعديل السعر كمسؤول"
                               />
-                              <span className="text-slate-400 text-[11px]">ج.م</span>
+                              <span className="text-slate-400 text-[8px] sm:text-[10px]">ج</span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-800 rounded px-2.5 py-1 font-mono-num font-bold text-slate-200">
+                            <div className="flex items-center justify-between sm:justify-start gap-0.5 font-mono-num font-bold text-slate-200 text-[10px] sm:text-xs">
                               <span>{Number(item.price).toLocaleString()}</span>
-                              <span className="text-[10px] text-slate-400 font-sans">ج.م</span>
+                              <span className="text-[8px] sm:text-[10px] text-slate-400 font-sans">ج.م</span>
                             </div>
                           )}
                         </td>
 
                         {/* 6. Delete Row */}
-                        <td className="py-2.5 px-3 text-center">
+                        <td className="py-1.5 px-0.5 sm:px-2 text-center">
                           <button
                             type="button"
                             onClick={() => handleRemoveItemRow(index)}
-                            className="text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition-colors"
+                            className="text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-slate-800 transition-colors inline-flex items-center justify-center"
                             title="حذف هذا الصنف"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </td>
                       </tr>

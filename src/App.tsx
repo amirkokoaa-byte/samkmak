@@ -13,6 +13,14 @@ export default function App() {
   const [appState, setAppState] = useState<AppState>(initialAppState);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<string>('أمير');
+
+  // Keep selectedUser valid if users list changes
+  useEffect(() => {
+    if (!selectedUser && appState.users.length > 0) {
+      setSelectedUser(appState.users[0]);
+    }
+  }, [appState.users, selectedUser]);
 
   // Subscribe to real-time sync service on mount
   useEffect(() => {
@@ -80,6 +88,8 @@ export default function App() {
         {/* 2. User Selection & Order Entry Form */}
         <UserOrderSection
           users={appState.users}
+          selectedUser={selectedUser}
+          onSelectUser={setSelectedUser}
           onAddUser={handleAddUser}
           menuItems={appState.menuItems}
           isAdmin={isAdmin}
@@ -91,15 +101,20 @@ export default function App() {
         {/* 3. Main Dashboard: Breakdown for each active user */}
         <MainDashboard
           orders={appState.orders}
-          onEditUser={(_userName) => {
-            // Scroll to the user order section
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+          onEditUser={(userName) => {
+            setSelectedUser(userName);
+            const orderFormElement = document.getElementById('order-form-section');
+            if (orderFormElement) {
+              orderFormElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
           }}
           onDeleteOrder={handleDeleteUserOrder}
         />
 
-        {/* 4. Live Aggregated Summary Table */}
-        <LiveSummaryTable orders={appState.orders} />
+        {/* 4. Live Aggregated Summary Table - Only visible to Admin */}
+        {isAdmin && <LiveSummaryTable orders={appState.orders} />}
 
         {/* 5. Financial Summary: Grand Total for all Names */}
         <FinancialSummary orders={appState.orders} />

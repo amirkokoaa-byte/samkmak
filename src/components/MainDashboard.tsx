@@ -109,41 +109,49 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 </div>
 
                 {/* Items Breakdown Table */}
-                <div className="p-0 overflow-x-auto flex-1">
-                  <table className="w-full text-right text-xs">
+                <div className="p-0 overflow-hidden flex-1">
+                  <table className="w-full text-right text-xs table-fixed sm:table-auto">
                     <thead>
-                      <tr className="text-slate-400 border-b border-slate-800/80 bg-slate-950/40 text-[11px]">
-                        <th className="py-2 px-3 text-center w-8">#</th>
-                        <th className="py-2 px-3">الصنف (النوع)</th>
-                        <th className="py-2 px-3 text-center w-14">العدد</th>
-                        <th className="py-2 px-3">الوزن / الكمية</th>
-                        <th className="py-2 px-3 w-24 text-left">السعر</th>
+                      <tr className="text-slate-400 border-b border-slate-800/80 bg-slate-950/40 text-[11px] whitespace-nowrap">
+                        <th className="py-2.5 px-2 text-center w-7 whitespace-nowrap hidden sm:table-cell">#</th>
+                        <th className="py-2 px-2 sm:px-3 whitespace-nowrap font-bold text-slate-300 w-[42%] sm:w-auto">
+                          الصنف (النوع)
+                        </th>
+                        <th className="py-2 px-1 sm:px-3 text-center whitespace-nowrap font-bold text-slate-300 w-11 sm:w-16">
+                          العدد
+                        </th>
+                        <th className="py-2 px-1 sm:px-3 text-center sm:text-right whitespace-nowrap font-bold text-slate-300 w-[24%] sm:w-auto">
+                          الوزن / الكمية
+                        </th>
+                        <th className="py-2 px-2 sm:px-3 text-left whitespace-nowrap font-bold text-slate-300 w-16 sm:w-24">
+                          السعر
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 font-medium">
                       {order.items.map((item, idx) => (
                         <tr key={item.id || idx} className="hover:bg-slate-800/30">
-                          <td className="py-2 px-3 text-center font-mono-num text-slate-500 text-[11px]">
+                          <td className="py-2 px-2 text-center font-mono-num text-slate-500 text-[11px] whitespace-nowrap hidden sm:table-cell">
                             {idx + 1}
                           </td>
-                          <td className="py-2 px-3 font-semibold text-slate-200">
+                          <td className="py-2 px-2 sm:px-3 font-semibold text-slate-200 text-[11px] sm:text-xs truncate" title={item.itemType}>
                             {item.itemType}
                           </td>
-                          <td className="py-2 px-3 text-center font-mono-num font-bold text-slate-300">
+                          <td className="py-2 px-1 sm:px-3 text-center font-mono-num font-bold text-slate-300 text-[11px] sm:text-xs whitespace-nowrap">
                             {item.count}
                           </td>
-                          <td className="py-2 px-3 text-slate-300">
+                          <td className="py-2 px-1 sm:px-3 text-center sm:text-right text-slate-300 text-[10px] sm:text-xs truncate">
                             {item.weightText ? (
-                              <span className="text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded text-[11px] border border-amber-900/50">
+                              <span className="text-amber-300 bg-amber-950/40 px-1 sm:px-2 py-0.5 rounded text-[10px] sm:text-[11px] border border-amber-900/50 whitespace-nowrap inline-block max-w-full truncate">
                                 {item.weightText}
                               </span>
                             ) : (
                               <span className="text-slate-600">—</span>
                             )}
                           </td>
-                          <td className="py-2 px-3 text-left font-mono-num font-bold text-slate-200">
+                          <td className="py-2 px-2 sm:px-3 text-left font-mono-num font-bold text-slate-200 text-[11px] sm:text-xs whitespace-nowrap">
                             {Number(item.price).toLocaleString()}{' '}
-                            <span className="text-[10px] text-slate-400 font-sans">ج.م</span>
+                            <span className="text-[9px] sm:text-[10px] text-slate-400 font-sans">ج.م</span>
                           </td>
                         </tr>
                       ))}
