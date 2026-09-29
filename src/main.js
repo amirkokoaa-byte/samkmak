@@ -50,7 +50,7 @@ if (typeof window !== 'undefined') {
 // --- دالة مساعدة لتحديث جدول الملخص ---
 export function updateSummaryTable(summaryData) {
   const summaryBody = document.getElementById('summary-table-body');
-  if (!summaryBody) return;
+  if (!summaryBody || summaryBody.closest('#root')) return;
   summaryBody.innerHTML = '';
 
   for (const [itemType, totalCount] of Object.entries(summaryData)) {
@@ -61,9 +61,14 @@ export function updateSummaryTable(summaryData) {
 
 // --- 3. ربط أزرار الـ HTML والشروط البرمجية (Event Listeners) ---
 export function setupUIBindings() {
+  const saveBtn = document.getElementById('save-order-btn');
+  // إذا كانت العناصر داخل تطبيق React، فإن React يدير حالته وتحديثاته بنفسه لمنع تداخل الأحداث
+  if (saveBtn && saveBtn.closest('#root')) {
+    return;
+  }
+
   const itemTypeSelect = document.getElementById('item-type-select');
   const quantityField = document.getElementById('item-quantity-select');
-  const saveBtn = document.getElementById('save-order-btn');
 
   // شرط برمجى (Event Listener) لحقل 'النوع' (Item Type):
   // إذا اختار المستخدم صنفاً لا يحتوي على كلمة 'جمبري'، قم بتعطيل (Disable) حقل 'الكمية' (Quantity).
@@ -126,9 +131,11 @@ export function initOrdersListener() {
   const ordersListenerRef = ref(db, 'orders');
 
   onValue(ordersListenerRef, (snapshot) => {
-    // 1. تفريغ الجدول الحالي (HTML) أولاً لكي لا تتكرر البيانات
+    // التحقق من أن الجدول ليس جزءاً من مكونات React لتجنب مسح بيانات React
     const mainTableBody = document.getElementById('main-orders-table-body');
-    if (mainTableBody) {
+    const isStandalone = mainTableBody && !mainTableBody.closest('#root');
+
+    if (isStandalone) {
       mainTableBody.innerHTML = '';
     }
 
@@ -143,8 +150,8 @@ export function initOrdersListener() {
       Object.keys(data).forEach((orderId) => {
         const order = data[orderId];
 
-        // 2. إضافة الطلب إلى الجدول في واجهة المستخدم (HTML)
-        if (mainTableBody) {
+        // 2. إضافة الطلب إلى الجدول في واجهة المستخدم (HTML) إذا كان مستقلاً
+        if (isStandalone) {
           const row = `
             <tr>
               <td>${order.name}</td>
@@ -171,9 +178,9 @@ export function initOrdersListener() {
       });
     }
 
-    // 4. تحديث قسم "قيمة جميع الأسماء (ج.م)"
+    // 4. تحديث قسم "قيمة جميع الأسماء (ج.م)" إذا كان مستقلاً خارج React
     const grandTotalDisplay = document.getElementById('grand-total-display');
-    if (grandTotalDisplay) {
+    if (grandTotalDisplay && !grandTotalDisplay.closest('#root')) {
       grandTotalDisplay.innerText = `${grandTotal} ج.م`;
     }
 

@@ -9,7 +9,7 @@ import {
   remove,
   Database,
 } from 'firebase/database';
-import type { AppConfig, AppState, MenuItem, OrderItem } from './types/index.ts';
+import type { AppConfig, AppState, MenuItem, OrderItem, UserOrder } from './types/index.ts';
 
 // Firebase Realtime Database Configuration for project: samak-c0399
 const firebaseConfig = {
@@ -111,13 +111,38 @@ export function listenToFirebase(
         onUpdate(defaultState);
       } else {
         // Normalize data to ensure robust structures
+        const rawOrders = data.orders || {};
+        const normalizedOrders: Record<string, UserOrder> = {};
+        if (rawOrders && typeof rawOrders === 'object') {
+          Object.entries(rawOrders).forEach(([userKey, orderVal]: [string, any]) => {
+            if (orderVal && typeof orderVal === 'object') {
+              const rawItems = orderVal.items;
+              let itemsArray: OrderItem[] = [];
+              if (Array.isArray(rawItems)) {
+                itemsArray = rawItems.filter(Boolean);
+              } else if (rawItems && typeof rawItems === 'object') {
+                itemsArray = Object.values(rawItems).filter(
+                  (it: any) => it && typeof it === 'object' && (it.itemType || it.name)
+                ) as OrderItem[];
+              }
+
+              normalizedOrders[userKey] = {
+                ...orderVal,
+                userName: orderVal.userName || userKey,
+                updatedAt: orderVal.updatedAt || Date.now(),
+                items: itemsArray,
+              };
+            }
+          });
+        }
+
         const normalizedState: AppState = {
           config: data.config || defaultState.config,
           users: Array.isArray(data.users) ? data.users : (data.users ? Object.values(data.users) : defaultState.users),
           menuItems: Array.isArray(data.menuItems)
             ? data.menuItems
             : (data.menuItems ? Object.values(data.menuItems) : defaultState.menuItems),
-          orders: data.orders || {},
+          orders: normalizedOrders,
           history: data.history || defaultState.history || {},
         };
         onUpdate(normalizedState);

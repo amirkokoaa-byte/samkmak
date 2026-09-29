@@ -117,7 +117,33 @@ class RealtimeSyncService {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.config && Array.isArray(parsed.users)) {
-          this.currentState = parsed;
+          const normalizedOrders: Record<string, UserOrder> = {};
+          if (parsed.orders && typeof parsed.orders === 'object') {
+            Object.entries(parsed.orders).forEach(([userKey, orderVal]: [string, any]) => {
+              if (orderVal && typeof orderVal === 'object') {
+                const rawItems = orderVal.items;
+                let itemsArray: OrderItem[] = [];
+                if (Array.isArray(rawItems)) {
+                  itemsArray = rawItems.filter(Boolean);
+                } else if (rawItems && typeof rawItems === 'object') {
+                  itemsArray = Object.values(rawItems).filter(
+                    (it: any) => it && typeof it === 'object' && (it.itemType || it.name)
+                  ) as OrderItem[];
+                }
+                normalizedOrders[userKey] = {
+                  ...orderVal,
+                  userName: orderVal.userName || userKey,
+                  updatedAt: orderVal.updatedAt || Date.now(),
+                  items: itemsArray,
+                };
+              }
+            });
+          }
+
+          this.currentState = {
+            ...parsed,
+            orders: normalizedOrders,
+          };
         }
       }
     } catch {}
