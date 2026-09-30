@@ -73,7 +73,7 @@ export const LiveSummaryTable: React.FC<LiveSummaryTableProps> = ({ orders }) =>
                 <th className="py-2.5 px-3 text-center w-12 font-bold text-slate-300">م</th>
                 <th className="py-2.5 px-3 font-bold text-slate-300">الصنف ونوع الطهي (Item Type)</th>
                 <th className="py-2.5 px-3 text-center w-28 font-bold text-slate-300">إجمالي العدد</th>
-                <th className="py-2.5 px-3 font-bold text-slate-300">تفاصيل الأوزان المسجلة (الجمبري)</th>
+                <th className="py-2.5 px-3 font-bold text-slate-300">تفاصيل الأوزان المسجلة (الجمبري والمكرونة)</th>
                 <th className="py-2.5 px-3 w-32 text-left font-bold text-slate-300">إجمالي القيمة</th>
               </tr>
             </thead>

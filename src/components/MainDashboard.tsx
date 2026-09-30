@@ -64,11 +64,17 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     const menuItem = menuItems.find((m) => m.name === newType);
     const baseUnitPrice = menuItem ? menuItem.pricePerKilo : 100;
     const isShrimp = newType.includes('جمبري');
+    const isMacaroni = newType.includes('مكرونه') || newType.includes('مكرونة');
 
     setEditItems((prev) =>
       prev.map((row, i) => {
         if (i !== index) return row;
-        const newWeight = isShrimp ? (row.weightText || 'نصف كيلو') : '';
+        let newWeight = '';
+        if (isShrimp) {
+          newWeight = row.weightText && !row.weightText.includes('جرام') ? row.weightText : 'نصف كيلو';
+        } else if (isMacaroni) {
+          newWeight = row.weightText && row.weightText.includes('جرام') ? row.weightText : '500 جرام';
+        }
         const calculated = calculateRowPrice(newType, row.count, newWeight, menuItems);
         return {
           ...row,
@@ -126,14 +132,18 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       name: 'سمكه بلطي كبيره سنجاري',
       pricePerKilo: 130,
     };
+    const isShrimp = defaultMenuItem.name.includes('جمبري');
+    const isMacaroni = defaultMenuItem.name.includes('مكرونه') || defaultMenuItem.name.includes('مكرونة');
+    const initialWeight = isShrimp ? 'نصف كيلو' : isMacaroni ? '500 جرام' : '';
+    const initialPrice = calculateRowPrice(defaultMenuItem.name, 1, initialWeight, menuItems);
     setEditItems((prev) => [
       ...prev,
       {
         id: `edit-row-${Date.now()}-${prev.length}`,
         itemType: defaultMenuItem.name,
         count: 1,
-        weightText: '',
-        price: defaultMenuItem.pricePerKilo,
+        weightText: initialWeight,
+        price: initialPrice,
         unitPrice: defaultMenuItem.pricePerKilo,
       },
     ]);
@@ -344,6 +354,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                         /* Editable Table Rows right in place */
                         editItems.map((item, idx) => {
                           const isShrimp = item.itemType.includes('جمبري');
+                          const isMacaroni = item.itemType.includes('مكرونه') || item.itemType.includes('مكرونة');
                           return (
                             <tr key={item.id || idx}>
                               {/* Index */}
@@ -393,6 +404,45 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                                     <option value="نصف كيلو">نصف كيلو</option>
                                     <option value="كيلو">كيلو</option>
                                   </select>
+                                ) : isMacaroni ? (
+                                  <div className="flex items-center justify-center gap-1 bg-slate-950/70 border border-slate-700/80 rounded px-1 py-0.5">
+                                    <input
+                                      type="number"
+                                      min={100}
+                                      max={1000}
+                                      step={50}
+                                      list={`edit-macaroni-weights-${idx}`}
+                                      value={item.weightText ? (parseInt(item.weightText.replace(/\D/g, ''), 10) || '') : 500}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '') {
+                                          handleEditWeightChange(idx, '');
+                                        } else {
+                                          const num = Math.min(1000, Math.max(0, Number(val)));
+                                          handleEditWeightChange(idx, `${num} جرام`);
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        const num = parseInt(e.target.value.replace(/\D/g, ''), 10);
+                                        if (isNaN(num) || num < 100) {
+                                          handleEditWeightChange(idx, '100 جرام');
+                                        } else if (num > 1000) {
+                                          handleEditWeightChange(idx, '1000 جرام');
+                                        } else {
+                                          handleEditWeightChange(idx, `${num} جرام`);
+                                        }
+                                      }}
+                                      placeholder="100-1000"
+                                      className="w-12 sm:w-14 bg-transparent text-center font-mono-num font-bold text-amber-300 text-[10px] sm:text-xs outline-none p-0"
+                                      title="اكتب الوزن بالجرام (من 100 حتى 1000 جرام)"
+                                    />
+                                    <datalist id={`edit-macaroni-weights-${idx}`}>
+                                      {[100, 200, 250, 300, 400, 500, 600, 700, 750, 800, 900, 1000].map((g) => (
+                                        <option key={g} value={g} />
+                                      ))}
+                                    </datalist>
+                                    <span className="text-[9px] text-slate-400 font-medium select-none">جرام</span>
+                                  </div>
                                 ) : (
                                   <span className="text-[10px] sm:text-xs opacity-70 select-none">
                                     —

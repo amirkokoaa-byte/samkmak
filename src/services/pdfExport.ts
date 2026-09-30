@@ -133,7 +133,7 @@ export function getReportBodyHTML(type: 'detailed' | 'summary', state: AppState)
             <th style="width: 45px; text-align: center;">م</th>
             <th>الصنف ونوع الطهي (المأكولات البحرية)</th>
             <th style="width: 100px; text-align: center;">إجمالي العدد</th>
-            <th>تفاصيل الأوزان المسجلة (الجمبري)</th>
+            <th>تفاصيل الأوزان المسجلة (الجمبري والمكرونة)</th>
             <th style="width: 130px; text-align: left;">إجمالي القيمة</th>
           </tr>
         </thead>
