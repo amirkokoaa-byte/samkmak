@@ -288,7 +288,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       type="text"
                       value={siteTitle}
                       onChange={(e) => setSiteTitle(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-base sm:text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -302,7 +302,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         type="text"
                         value={walletNumber}
                         onChange={(e) => setWalletNumber(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm font-mono-num text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dir-ltr"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-base sm:text-sm font-mono-num text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dir-ltr"
                         required
                       />
                     </div>
@@ -315,7 +315,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         type="text"
                         value={instapayNumber}
                         onChange={(e) => setInstapayNumber(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm font-mono-num text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dir-ltr"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-base sm:text-sm font-mono-num text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dir-ltr"
                         required
                       />
                     </div>
@@ -374,7 +374,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             }
                           }}
                           placeholder="مثال: سمك قاروص مشوي زيت وليمون"
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-base sm:text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           required
                         />
                       </div>
@@ -388,7 +388,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           value={newItemPrice}
                           onChange={(e) => setNewItemPrice(e.target.value === '' ? '' : Number(e.target.value))}
                           placeholder="مثال: 220"
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 font-mono-num focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-base sm:text-xs text-slate-100 font-mono-num focus:outline-none focus:ring-1 focus:ring-blue-500"
                           required
                         />
                       </div>
@@ -398,7 +398,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         <select
                           value={newItemIsShrimp ? 'جمبري' : 'أسماك'}
                           onChange={(e) => setNewItemIsShrimp(e.target.value === 'جمبري')}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-base sm:text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
                           <option value="أسماك">سمك عادي</option>
                           <option value="جمبري">جمبري (يفتح الوزن)</option>
@@ -457,7 +457,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                 min="0"
                                 value={item.pricePerKilo}
                                 onChange={(e) => handlePriceChange(item.id, Number(e.target.value))}
-                                className="w-20 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-center font-mono-num text-slate-100 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                className="w-20 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-center font-mono-num text-slate-100 font-bold focus:outline-none focus:ring-1 focus:ring-blue-500 text-base sm:text-xs"
                               />
                               <span className="text-slate-400 text-[11px]">ج.م</span>
                             </div>
@@ -600,7 +600,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         value={newUserNameInput}
                         onChange={(e) => setNewUserNameInput(e.target.value)}
                         placeholder="أدخل اسماً جديداً..."
-                        className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-base sm:text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                       <button
                         type="submit"
@@ -647,7 +647,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                       type="text"
                                       value={editUserNameValue}
                                       onChange={(e) => setEditUserNameValue(e.target.value)}
-                                      className="bg-slate-900 border border-blue-500 rounded px-2.5 py-1 text-xs text-white focus:outline-none w-full max-w-xs"
+                                      className="bg-slate-900 border border-blue-500 rounded px-2.5 py-1 text-base sm:text-xs text-white focus:outline-none w-full max-w-xs"
                                       autoFocus
                                     />
                                     <button

@@ -95,7 +95,7 @@ export default function App() {
   const handleArchiveOrders = async () => {
     const success = await realtimeService.archiveCurrentOrders();
     if (success) {
-      setArchiveSuccessMsg('تم حفظ وترحيل جميع الطلبات بنجاح إلى السجل الدائم!');
+      setArchiveSuccessMsg('تم حفظ الطلبات في السجل ومسح الصفحة الرئيسية لاستقبال طلبات جديدة بنجاح!');
       setTimeout(() => setArchiveSuccessMsg(null), 4000);
     } else {
       alert('لا توجد طلبات حالية مسجلة لترحيلها إلى السجل.');

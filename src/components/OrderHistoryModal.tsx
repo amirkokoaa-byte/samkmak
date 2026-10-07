@@ -37,20 +37,20 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="backdrop-blur-2xl bg-slate-950/90 border border-cyan-500/35 rounded-3xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-[0_0_50px_rgba(6,182,212,0.2)] overflow-hidden">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-slate-950 border-b border-slate-800">
+        <div className="flex items-center justify-between px-5 py-4 bg-slate-950/80 border-b border-cyan-500/20">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-950 border border-blue-700/80 flex items-center justify-center text-blue-400">
-              <History className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-cyan-950/80 border border-cyan-500/50 flex items-center justify-center text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.3)]">
+              <History className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                 <span>سجل الطلبات الدائم (الأرشيف)</span>
-                <span className="text-xs font-normal text-amber-400 bg-amber-950/60 border border-amber-800/80 px-2 py-0.5 rounded-full">
-                  خاص بالمسؤول (Admin)
+                <span className="text-xs font-mono font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-500/40 px-2.5 py-0.5 rounded-full">
+                  ADMIN ONLY
                 </span>
               </h2>
               <p className="text-xs text-slate-400">

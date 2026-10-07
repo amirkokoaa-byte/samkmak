@@ -96,6 +96,40 @@ table input {
   border-color: #4b5563 !important;
 }
 
+/* ==========================================================================
+   منع الزوم التلقائي المزعج على الموبايل عند الضغط على أي حقل إدخال (16px على الأقل)
+   مع السماح للمستخدم بالتكبير اليدوي إذا رغب في ذلك (Pinch-to-zoom)
+   ========================================================================== */
+html,
+body {
+  touch-action: manipulation;
+}
+
+/* ضبط حجم الخط لجميع حقول الإدخال والاختيار على 16 بكسل لمنع الزوم في iOS Safari و Chrome Mobile */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+@media screen and (max-width: 768px) {
+  input,
+  select,
+  textarea,
+  table input,
+  table select,
+  table textarea,
+  input[type="text"],
+  input[type="number"],
+  input[type="password"],
+  input[type="search"],
+  input[type="email"],
+  input[type="tel"] {
+    font-size: 16px !important;
+    line-height: normal;
+  }
+}
+
 table select option {
   background-color: #1f2937 !important;
   color: #ffffff !important;

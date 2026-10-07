@@ -264,9 +264,12 @@ app.post('/api/history', (req, res) => {
   if (entry && entry.id) {
     if (!state.history) state.history = {};
     state.history[entry.id] = entry;
+    // Clear active orders from server state so main page is clean for new orders
+    state.orders = {};
     broadcast({ type: 'HISTORY_UPDATED', data: state.history });
+    broadcast({ type: 'ALL_ORDERS_CLEARED', data: {} });
   }
-  res.json({ success: true, history: state.history });
+  res.json({ success: true, history: state.history, orders: state.orders });
 });
 
 app.post('/api/history/delete', (req, res) => {
@@ -363,7 +366,9 @@ wss.on('connection', (ws) => {
           if (entry && entry.id) {
             if (!state.history) state.history = {};
             state.history[entry.id] = entry;
+            state.orders = {};
             broadcast({ type: 'HISTORY_UPDATED', data: state.history });
+            broadcast({ type: 'ALL_ORDERS_CLEARED', data: {} });
           }
           break;
         }

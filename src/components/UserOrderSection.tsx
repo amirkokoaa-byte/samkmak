@@ -235,7 +235,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
               id="user-name-select"
               value={selectedUser}
               onChange={(e) => handleSelectUser(e.target.value)}
-              className="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-slate-600 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer pr-10"
+              className="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-slate-600 rounded-xl px-4 py-2.5 text-base sm:text-sm font-semibold text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer pr-10"
             >
               <option value="">-- اضغط لاختيار اسم العميل --</option>
               {users.map((name) => {
@@ -417,7 +417,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                               id={index === 0 ? 'item-type-select' : undefined}
                               value={item.itemType}
                               onChange={(e) => handleItemTypeChange(index, e.target.value)}
-                              className="w-full rounded px-1 sm:px-2 py-1 text-[10px] sm:text-xs font-medium cursor-pointer truncate"
+                              className="w-full rounded px-1 sm:px-2 py-1 text-base sm:text-xs font-medium cursor-pointer truncate"
                             >
                               {menuItems.map((menu) => (
                                 <option key={menu.id} value={menu.name}>
@@ -433,7 +433,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                               id={index === 0 ? 'item-count-select' : undefined}
                               value={item.count}
                               onChange={(e) => handleCountChange(index, Number(e.target.value))}
-                              className="w-full rounded px-0.5 sm:px-1.5 py-1 text-center font-mono-num font-bold text-[10px] sm:text-xs cursor-pointer"
+                              className="w-full rounded px-0.5 sm:px-1.5 py-1 text-center font-mono-num font-bold text-base sm:text-xs cursor-pointer"
                             >
                               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                                 <option key={num} value={num}>
@@ -451,7 +451,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                                   id={index === 0 ? 'item-quantity-select' : undefined}
                                   value={item.weightText || 'نصف كيلو'}
                                   onChange={(e) => handleWeightChange(index, e.target.value)}
-                                  className="w-full rounded px-0.5 sm:px-1 py-1 text-[10px] sm:text-xs text-center font-bold cursor-pointer"
+                                  className="w-full rounded px-0.5 sm:px-1 py-1 text-base sm:text-xs text-center font-bold cursor-pointer"
                                 >
                                   <option value="ربع كيلو">ربع كيلو</option>
                                   <option value="نصف كيلو">نصف كيلو</option>
@@ -488,7 +488,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                                     }
                                   }}
                                   placeholder="100-1000"
-                                  className="w-14 sm:w-16 bg-transparent text-center font-mono-num font-bold text-amber-300 text-[11px] sm:text-xs outline-none p-0"
+                                  className="w-16 sm:w-16 bg-transparent text-center font-mono-num font-bold text-amber-300 text-base sm:text-xs outline-none p-0"
                                   title="اكتب وزن سمك المكرونة بالجرام (من 100 حتى 1000 جرام)"
                                 />
                                 <datalist id={`macaroni-weights-${index}`}>
@@ -506,7 +506,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                                   disabled
                                   readOnly
                                   value="—"
-                                  className="w-full text-center bg-transparent border-0 opacity-70 cursor-not-allowed text-[10px] sm:text-xs"
+                                  className="w-full text-center bg-transparent border-0 opacity-70 cursor-not-allowed text-base sm:text-xs"
                                 />
                               </div>
                             )}
@@ -521,7 +521,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                                   min="0"
                                   value={item.price}
                                   onChange={(e) => handleAdminPriceOverride(index, Number(e.target.value))}
-                                  className="w-12 sm:w-16 rounded px-1 py-0.5 text-center font-mono-num font-bold text-[10px] sm:text-xs"
+                                  className="w-16 sm:w-16 rounded px-1 py-0.5 text-center font-mono-num font-bold text-base sm:text-xs"
                                   title="تعديل السعر كمسؤول"
                                 />
                                 <span className="text-[8px] sm:text-[10px]">ج</span>
@@ -626,7 +626,7 @@ export const UserOrderSection: React.FC<UserOrderSectionProps> = ({
                   placeholder="مثال: حسام، رامي، بيتر..."
                   autoFocus
                   required
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-base sm:text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 

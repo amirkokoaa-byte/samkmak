@@ -23,10 +23,6 @@ export const LiveSummaryTable: React.FC<LiveSummaryTableProps> = ({ orders }) =>
     .filter((it) => it.itemType.includes('جمبري'))
     .reduce((s, it) => s + it.totalCount, 0);
 
-  const shrimpWeights = summaryList
-    .filter((it) => it.itemType.includes('جمبري'))
-    .flatMap((it) => it.weights);
-
   const totalMakrouna = summaryList
     .filter((it) => it.itemType.includes('مكرونه') || it.itemType.includes('مكرونة'))
     .reduce((s, it) => s + it.totalCount, 0);
@@ -38,43 +34,45 @@ export const LiveSummaryTable: React.FC<LiveSummaryTableProps> = ({ orders }) =>
   const totalItemsAll = summaryList.reduce((s, it) => s + it.totalCount, 0);
 
   return (
-    <section className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl mb-8">
+    <section className="backdrop-blur-xl bg-slate-900/45 border border-cyan-500/30 rounded-2xl p-5 sm:p-6 shadow-[0_0_30px_rgba(6,182,212,0.12)] hover:border-cyan-400/50 transition-all mb-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-cyan-500/20">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-800/80 flex items-center justify-center text-emerald-400 shrink-0">
-            <Sparkles className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-cyan-950/80 border border-cyan-500/50 flex items-center justify-center text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.3)] shrink-0">
+            <Sparkles className="w-5 h-5 text-cyan-400" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-              <span>الملخص الإجمالي اللحظي للأصناف (Live Summary Table)</span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-normal text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-sky-100">
+                الملخص الإجمالي اللحظي للأصناف (Live Summary Table)
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-cyan-300 bg-cyan-950/60 px-2.5 py-0.5 rounded-full border border-cyan-500/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
                 تحديث فوري
               </span>
             </h2>
           </div>
         </div>
 
-        <div className="text-xs text-slate-300 font-medium bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-800">
+        <div className="text-xs text-slate-300 font-mono bg-slate-950/80 px-4 py-1.5 rounded-xl border border-cyan-500/30">
           إجمالي القطع والوجبات:{' '}
-          <span className="font-mono-num font-bold text-emerald-400 text-sm">
+          <span className="font-mono-num font-bold text-cyan-300 text-sm">
             {totalItemsAll}
           </span>
         </div>
       </div>
 
       {/* Detailed Live Aggregation Table */}
-      <div className="border border-slate-800 rounded-xl overflow-hidden mt-5">
+      <div className="border border-cyan-500/30 rounded-2xl overflow-hidden mt-5 shadow-[0_0_20px_rgba(6,182,212,0.08)]">
         <div className="overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead>
-              <tr className="bg-slate-950/90 text-slate-400 border-b border-slate-800">
-                <th className="py-2.5 px-3 text-center w-12 font-bold text-slate-300">م</th>
-                <th className="py-2.5 px-3 font-bold text-slate-300">الصنف ونوع الطهي (Item Type)</th>
-                <th className="py-2.5 px-3 text-center w-28 font-bold text-slate-300">إجمالي العدد</th>
-                <th className="py-2.5 px-3 font-bold text-slate-300">تفاصيل الأوزان المسجلة (الجمبري والمكرونة)</th>
-                <th className="py-2.5 px-3 w-32 text-left font-bold text-slate-300">إجمالي القيمة</th>
+              <tr className="bg-slate-950/90 text-cyan-200 border-b border-cyan-500/30">
+                <th className="py-2.5 px-3 text-center w-12 font-bold text-cyan-300">م</th>
+                <th className="py-2.5 px-3 font-bold text-cyan-300">الصنف ونوع الطهي (Item Type)</th>
+                <th className="py-2.5 px-3 text-center w-28 font-bold text-cyan-300">إجمالي العدد</th>
+                <th className="py-2.5 px-3 font-bold text-cyan-300">تفاصيل الأوزان المسجلة (الجمبري والمكرونة)</th>
+                <th className="py-2.5 px-3 w-32 text-left font-bold text-cyan-300">إجمالي القيمة</th>
               </tr>
             </thead>
             <tbody id="summary-table-body" className="divide-y divide-slate-800/70 font-medium">
@@ -86,14 +84,14 @@ export const LiveSummaryTable: React.FC<LiveSummaryTableProps> = ({ orders }) =>
                 </tr>
               ) : (
                 summaryList.map((item, idx) => (
-                  <tr key={item.itemType} className="hover:bg-slate-800/30 transition-colors">
+                  <tr key={item.itemType} className="hover:bg-cyan-950/20 transition-colors">
                     <td className="py-2.5 px-3 text-center font-mono-num font-bold text-slate-500">
                       {idx + 1}
                     </td>
                     <td className="py-2.5 px-3 font-semibold text-slate-200">
                       {item.itemType}
                     </td>
-                    <td className="py-2.5 px-3 text-center font-mono-num font-extrabold text-blue-400 text-sm">
+                    <td className="py-2.5 px-3 text-center font-mono-num font-extrabold text-cyan-400 text-sm">
                       {item.totalCount}
                     </td>
                     <td className="py-2.5 px-3 text-slate-300">
@@ -102,7 +100,7 @@ export const LiveSummaryTable: React.FC<LiveSummaryTableProps> = ({ orders }) =>
                           {item.weights.map((w, wi) => (
                             <span
                               key={wi}
-                              className="text-[11px] bg-slate-800 border border-slate-700 px-2 py-0.5 rounded text-amber-300"
+                              className="text-[11px] bg-slate-950/80 border border-cyan-500/30 px-2 py-0.5 rounded text-amber-300 font-mono"
                             >
                               {w}
                             </span>
@@ -112,9 +110,8 @@ export const LiveSummaryTable: React.FC<LiveSummaryTableProps> = ({ orders }) =>
                         <span className="text-slate-600">—</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-left font-mono-num font-bold text-slate-200">
-                      {item.totalPrice.toLocaleString()}{' '}
-                      <span className="text-[10px] text-slate-400 font-sans">ج.م</span>
+                    <td className="py-2.5 px-3 text-left font-mono-num font-black text-cyan-300 text-xs">
+                      {item.totalPrice.toLocaleString()} ج.م
                     </td>
                   </tr>
                 ))

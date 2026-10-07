@@ -362,12 +362,12 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                                 {idx + 1}
                               </td>
 
-                              {/* Item type dropdown */}
+                               {/* Item type dropdown */}
                               <td className="py-1.5 px-1 sm:px-2">
                                 <select
                                   value={item.itemType}
                                   onChange={(e) => handleEditItemTypeChange(idx, e.target.value)}
-                                  className="w-full rounded px-1 sm:px-2 py-1 text-[10px] sm:text-xs font-medium cursor-pointer truncate"
+                                  className="w-full rounded px-1 sm:px-2 py-1 text-base sm:text-xs font-medium cursor-pointer truncate"
                                 >
                                   {menuItems.map((menu) => (
                                     <option key={menu.id} value={menu.name}>
@@ -382,7 +382,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                                 <select
                                   value={item.count}
                                   onChange={(e) => handleEditCountChange(idx, Number(e.target.value))}
-                                  className="w-full rounded px-0.5 py-1 text-center font-mono-num font-bold text-[10px] sm:text-xs cursor-pointer"
+                                  className="w-full rounded px-0.5 py-1 text-center font-mono-num font-bold text-base sm:text-xs cursor-pointer"
                                 >
                                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                                     <option key={num} value={num}>
@@ -398,7 +398,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                                   <select
                                     value={item.weightText || 'نصف كيلو'}
                                     onChange={(e) => handleEditWeightChange(idx, e.target.value)}
-                                    className="w-full rounded px-0.5 sm:px-1 py-1 text-[10px] sm:text-xs text-center font-bold cursor-pointer"
+                                    className="w-full rounded px-0.5 sm:px-1 py-1 text-base sm:text-xs text-center font-bold cursor-pointer"
                                   >
                                     <option value="ربع كيلو">ربع كيلو</option>
                                     <option value="نصف كيلو">نصف كيلو</option>
@@ -433,7 +433,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                                         }
                                       }}
                                       placeholder="100-1000"
-                                      className="w-12 sm:w-14 bg-transparent text-center font-mono-num font-bold text-amber-300 text-[10px] sm:text-xs outline-none p-0"
+                                      className="w-14 sm:w-14 bg-transparent text-center font-mono-num font-bold text-amber-300 text-base sm:text-xs outline-none p-0"
                                       title="اكتب الوزن بالجرام (من 100 حتى 1000 جرام)"
                                     />
                                     <datalist id={`edit-macaroni-weights-${idx}`}>
@@ -459,7 +459,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                                       min="0"
                                       value={item.price}
                                       onChange={(e) => handleEditAdminPriceOverride(idx, Number(e.target.value))}
-                                      className="w-12 sm:w-16 rounded px-1 py-0.5 text-center font-mono-num font-bold text-[10px] sm:text-xs"
+                                      className="w-16 sm:w-16 rounded px-1 py-0.5 text-center font-mono-num font-bold text-base sm:text-xs"
                                       title="تعديل السعر كمسؤول"
                                     />
                                     <span className="text-[8px] sm:text-[10px]">ج</span>

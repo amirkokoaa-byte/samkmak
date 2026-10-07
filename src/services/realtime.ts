@@ -606,21 +606,25 @@ class RealtimeSyncService {
     };
 
     const newHistory = { ...(this.currentState.history || {}), [entryId]: entry };
-    this.currentState = { ...this.currentState, history: newHistory };
+    // حفظ في السجل مع مسح الطلبات الحالية من الصفحة الرئيسية لاستقبال طلبات جديدة
+    this.currentState = { ...this.currentState, history: newHistory, orders: {} };
     this.notifyListeners();
     this.syncLocalAcrossTabs();
 
     if (isFirebaseConfigured) {
       addFirebaseOrderHistory(entry);
+      clearFirebaseAllOrders();
     }
 
     this.send({ type: 'SAVE_HISTORY', data: entry });
+    this.send({ type: 'CLEAR_ALL_ORDERS' });
     try {
       await fetch('/api/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entry),
       });
+      await fetch('/api/orders/clear-all', { method: 'POST' });
     } catch {}
 
     return true;
