@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import type { AppState, AppConfig, MenuItem, OrderItem } from './types/index.ts';
+import React, { useState, useEffect, useRef } from 'react';
+import type { AppState, AppConfig, MenuItem, OrderItem, UserOrder } from './types/index.ts';
 import { realtimeService, initialAppState } from './services/realtime.ts';
 import { Header } from './components/Header.tsx';
 import { AdminModal } from './components/AdminModal.tsx';
@@ -10,6 +10,7 @@ import { LiveSummaryTable } from './components/LiveSummaryTable.tsx';
 import { FinancialSummary } from './components/FinancialSummary.tsx';
 import { Footer } from './components/Footer.tsx';
 import { CheckCircle2 } from 'lucide-react';
+import { playOrderRegisteredVoice } from './utils/voiceAlert.ts';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>(initialAppState);
@@ -19,6 +20,8 @@ export default function App() {
   const [archiveSuccessMsg, setArchiveSuccessMsg] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [dashboardEditingUser, setDashboardEditingUser] = useState<string | null>(null);
+  const prevOrdersRef = useRef<Record<string, UserOrder> | null>(null);
+  const isInitialSyncDoneRef = useRef(false);
 
   // Keep selectedUser valid if user was deleted
   useEffect(() => {
@@ -29,10 +32,32 @@ export default function App() {
 
   // Subscribe to real-time sync service on mount
   useEffect(() => {
+    const syncReadyTimer = setTimeout(() => {
+      isInitialSyncDoneRef.current = true;
+    }, 2000);
+
     const unsubscribe = realtimeService.subscribe((newState) => {
+      if (isInitialSyncDoneRef.current && prevOrdersRef.current) {
+        const prevOrders = prevOrdersRef.current;
+        const currOrders = newState.orders || {};
+        const hasNewOrder = Object.entries(currOrders).some(([user, order]) => {
+          if (!order || !Array.isArray(order.items) || order.items.length === 0) return false;
+          const prev = prevOrders[user];
+          if (!prev || !Array.isArray(prev.items) || prev.items.length === 0) return true;
+          return (
+            (order.updatedAt && prev.updatedAt && order.updatedAt > prev.updatedAt) ||
+            JSON.stringify(order.items) !== JSON.stringify(prev.items)
+          );
+        });
+        if (hasNewOrder) {
+          playOrderRegisteredVoice();
+        }
+      }
+      prevOrdersRef.current = newState.orders ? { ...newState.orders } : {};
       setAppState(newState);
     });
     return () => {
+      clearTimeout(syncReadyTimer);
       unsubscribe();
     };
   }, []);
@@ -81,6 +106,9 @@ export default function App() {
   };
 
   const handleSaveUserOrder = (userName: string, items: OrderItem[]) => {
+    if (items.length > 0) {
+      playOrderRegisteredVoice();
+    }
     realtimeService.updateUserOrder(userName, items);
   };
 

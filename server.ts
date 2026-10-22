@@ -295,6 +295,54 @@ app.post('/api/history/delete', (req, res) => {
   res.json({ success: true, history: state.history });
 });
 
+// Cached Arabic TTS endpoint for reliable voice alerts on all mobile & desktop browsers
+const ttsCache = new Map<string, Buffer>();
+
+async function fetchTtsBuffer(text: string): Promise<Buffer | null> {
+  if (ttsCache.has(text)) {
+    return ttsCache.get(text)!;
+  }
+  try {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
+      text
+    )}&tl=ar&client=tw-ob`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+    if (response.ok) {
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      if (buffer.length > 100) {
+        ttsCache.set(text, buffer);
+        return buffer;
+      }
+    }
+  } catch (err) {
+    console.warn('[TTS] Failed to fetch remote TTS audio:', err);
+  }
+  return null;
+}
+
+// Pre-warm default Egyptian Arabic phrase on server start
+fetchTtsBuffer('تم تسجيل الطلب').catch(() => {});
+
+app.get('/api/tts', async (req, res) => {
+  const text = typeof req.query.text === 'string' && req.query.text.trim()
+    ? req.query.text.trim()
+    : 'تم تسجيل الطلب';
+  const buffer = await fetchTtsBuffer(text);
+  if (buffer) {
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(buffer);
+  } else {
+    res.status(404).end();
+  }
+});
+
 // WebSocket message handling
 wss.on('connection', (ws) => {
   // Send initial full state immediately
