@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { User, Trash2, Edit3, ShoppingBag, UserCog, Plus, Check, X } from 'lucide-react';
-import type { MenuItem, OrderItem, UserOrder } from '../types/index.ts';
+import { User, Trash2, Edit3, ShoppingBag, UserCog, Plus, Check, X, FileDown } from 'lucide-react';
+import type { AppState, MenuItem, OrderItem, UserOrder } from '../types/index.ts';
 import { calculateRowPrice } from '../utils/pricing.ts';
+import { generateDirectJsPDF } from '../services/pdfExport.ts';
 
 interface MainDashboardProps {
   orders: Record<string, UserOrder>;
+  state?: AppState;
   isAdmin?: boolean;
   onEditUser?: (userName: string) => void;
   onDeleteOrder: (userName: string) => void;
@@ -17,6 +19,7 @@ interface MainDashboardProps {
 
 export const MainDashboard: React.FC<MainDashboardProps> = ({
   orders,
+  state,
   isAdmin = false,
   onDeleteOrder,
   onRenameUser,
@@ -25,6 +28,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
   activeEditingUser: controlledEditingUser,
   setActiveEditingUser: controlledSetEditingUser,
 }) => {
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   // Local edit states
   const [internalEditingUser, setInternalEditingUser] = useState<string | null>(null);
   const editingUser = controlledEditingUser !== undefined ? controlledEditingUser : internalEditingUser;
@@ -157,9 +161,19 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!state || isExportingPdf) return;
+    setIsExportingPdf(true);
+    try {
+      await generateDirectJsPDF('detailed', state);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   return (
     <section className="mb-8">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
             <ShoppingBag className="w-4 h-4 text-blue-400" />
@@ -171,11 +185,26 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           </div>
         </div>
 
-        <div className="text-xs text-slate-400 font-medium">
-          العملاء النشطون:{' '}
-          <span className="font-mono-num font-bold text-blue-400 text-sm">
-            {activeOrders.length}
-          </span>
+        <div className="flex items-center gap-3">
+          {state && (
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={isExportingPdf || activeOrders.length === 0}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-sm cursor-pointer disabled:cursor-not-allowed"
+              title="تصدير الطلبات المسجلة كملف PDF"
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              <span>{isExportingPdf ? 'جاري التصدير...' : 'تصدير PDF'}</span>
+            </button>
+          )}
+
+          <div className="text-xs text-slate-400 font-medium">
+            العملاء النشطون:{' '}
+            <span className="font-mono-num font-bold text-blue-400 text-sm">
+              {activeOrders.length}
+            </span>
+          </div>
         </div>
       </div>
 

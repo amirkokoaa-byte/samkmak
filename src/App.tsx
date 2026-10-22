@@ -185,6 +185,7 @@ export default function App() {
         {/* 3. Main Dashboard: Breakdown for each active user */}
         <MainDashboard
           orders={appState.orders}
+          state={appState}
           isAdmin={isAdmin}
           onDeleteOrder={handleDeleteUserOrder}
           onRenameUser={handleRenameUser}
