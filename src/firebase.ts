@@ -168,13 +168,21 @@ export async function setFirebaseConfig(config: Partial<AppConfig>) {
   }
 }
 
-export async function addFirebaseUser(name: string, currentUsers: string[]) {
+export async function addFirebaseUser(name: string, updatedUsers: string[]) {
   if (!database) return;
   const trimmed = name.trim();
-  if (!trimmed || currentUsers.includes(trimmed)) return;
+  if (!trimmed) return;
   try {
     const usersRef = ref(database, `${DB_ROOT}/users`);
-    await set(usersRef, [...currentUsers, trimmed]);
+    const snap = await get(usersRef);
+    const existingRaw = snap.val();
+    const existingList: string[] = Array.isArray(existingRaw)
+      ? existingRaw.filter(Boolean)
+      : existingRaw && typeof existingRaw === 'object'
+      ? (Object.values(existingRaw).filter(Boolean) as string[])
+      : [];
+    const merged = Array.from(new Set([...existingList, ...updatedUsers, trimmed]));
+    await set(usersRef, merged);
   } catch (err) {
     console.error('[Firebase] Error adding user:', err);
   }

@@ -198,6 +198,20 @@ app.post('/api/users', (req, res) => {
   res.json({ success: true, users: state.users });
 });
 
+app.post('/api/users/sync', (req, res) => {
+  const { users } = req.body;
+  if (Array.isArray(users)) {
+    const cleanUsers = Array.from(
+      new Set(users.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean))
+    );
+    if (cleanUsers.length > 0 && JSON.stringify(cleanUsers) !== JSON.stringify(state.users)) {
+      state.users = cleanUsers;
+      broadcast({ type: 'USERS_UPDATED', data: state.users });
+    }
+  }
+  res.json({ success: true, users: state.users });
+});
+
 app.post('/api/users/rename', (req, res) => {
   const { oldName, newName } = req.body;
   const trimmedNew = typeof newName === 'string' ? newName.trim() : '';

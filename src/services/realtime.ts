@@ -11,9 +11,12 @@ import {
   deleteFirebaseOrderHistory,
   deleteFirebaseUser,
   renameFirebaseUser,
+  setFirebaseUsers,
 } from '../firebase.ts';
 
 const STORAGE_KEY = 'seafood_order_system_state';
+const SAVED_USERS_KEY = 'seafood_order_system_users_v1';
+const DELETED_USERS_KEY = 'seafood_order_system_deleted_users_v1';
 
 const defaultMenuItems: MenuItem[] = [
   { id: 'item-1', name: 'سمكه بلطي كبيره سنجاري', pricePerKilo: 130, isShrimp: false, category: 'بلطي' },
@@ -101,10 +104,78 @@ class RealtimeSyncService {
     this.startPolling();
   }
 
+  private getPersistedUsers(): string[] {
+    try {
+      const raw = localStorage.getItem(SAVED_USERS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean);
+        }
+      }
+    } catch {}
+    return [];
+  }
+
+  private savePersistedUsers(users: string[]) {
+    try {
+      const clean = Array.from(new Set(users.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean)));
+      localStorage.setItem(SAVED_USERS_KEY, JSON.stringify(clean));
+    } catch {}
+  }
+
+  private getDeletedUsers(): string[] {
+    try {
+      const raw = localStorage.getItem(DELETED_USERS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean);
+        }
+      }
+    } catch {}
+    return [];
+  }
+
+  private saveDeletedUsers(deleted: string[]) {
+    try {
+      const clean = Array.from(new Set(deleted.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean)));
+      localStorage.setItem(DELETED_USERS_KEY, JSON.stringify(clean));
+    } catch {}
+  }
+
+  private reconcileUsers(incomingUsers: string[], syncBack = false): string[] {
+    const saved = this.getPersistedUsers();
+    const deleted = this.getDeletedUsers();
+    const merged = Array.from(new Set([...(incomingUsers || []), ...saved]))
+      .map((u) => (typeof u === 'string' ? u.trim() : ''))
+      .filter((u) => u && !deleted.includes(u));
+
+    const finalUsers = merged.length > 0 ? merged : incomingUsers;
+    this.savePersistedUsers(finalUsers);
+
+    if (syncBack && JSON.stringify(finalUsers) !== JSON.stringify(incomingUsers)) {
+      if (isFirebaseConfigured) {
+        setFirebaseUsers(finalUsers);
+      }
+      fetch('/api/users/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users: finalUsers }),
+      }).catch(() => {});
+    }
+
+    return finalUsers;
+  }
+
   private initFirebase() {
     if (isFirebaseConfigured) {
       this.unsubscribeFirebase = listenToFirebase(this.currentState, (firebaseState) => {
-        this.currentState = firebaseState;
+        const reconciledUsers = this.reconcileUsers(firebaseState.users, true);
+        this.currentState = {
+          ...firebaseState,
+          users: reconciledUsers,
+        };
         this.notifyListeners();
         this.syncLocalAcrossTabs();
       });
@@ -140,11 +211,19 @@ class RealtimeSyncService {
             });
           }
 
+          const reconciledUsers = this.reconcileUsers(parsed.users, false);
           this.currentState = {
             ...parsed,
+            users: reconciledUsers,
             orders: normalizedOrders,
           };
         }
+      } else {
+        const reconciledUsers = this.reconcileUsers(this.currentState.users, false);
+        this.currentState = {
+          ...this.currentState,
+          users: reconciledUsers,
+        };
       }
     } catch {}
   }
@@ -152,6 +231,9 @@ class RealtimeSyncService {
   private saveLocalBackup(state: AppState) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if (Array.isArray(state.users)) {
+        this.savePersistedUsers(state.users);
+      }
     } catch (e) {
       console.warn('LocalStorage save error:', e);
     }
@@ -315,11 +397,16 @@ class RealtimeSyncService {
       if (res.ok) {
         const data = await res.json();
         if (data && data.config && Array.isArray(data.users)) {
+          const reconciledUsers = this.reconcileUsers(data.users, true);
+          const mergedData: AppState = {
+            ...data,
+            users: reconciledUsers,
+          };
           // Check if data actually changed to avoid unnecessary re-renders
           const currentJson = JSON.stringify(this.currentState);
-          const newJson = JSON.stringify(data);
+          const newJson = JSON.stringify(mergedData);
           if (currentJson !== newJson) {
-            this.currentState = data;
+            this.currentState = mergedData;
             this.notifyListeners();
             this.syncLocalAcrossTabs();
           }
@@ -336,7 +423,10 @@ class RealtimeSyncService {
     switch (msg.type) {
       case 'INIT_STATE':
         if (msg.data) {
-          this.currentState = msg.data;
+          const reconciledUsers = Array.isArray(msg.data.users)
+            ? this.reconcileUsers(msg.data.users, true)
+            : this.currentState.users;
+          this.currentState = { ...msg.data, users: reconciledUsers };
           this.notifyListeners();
           this.syncLocalAcrossTabs();
         }
@@ -350,7 +440,8 @@ class RealtimeSyncService {
         break;
       case 'USERS_UPDATED':
         if (Array.isArray(msg.data)) {
-          this.currentState = { ...this.currentState, users: msg.data };
+          const reconciledUsers = this.reconcileUsers(msg.data, false);
+          this.currentState = { ...this.currentState, users: reconciledUsers };
           this.notifyListeners();
           this.syncLocalAcrossTabs();
         }
@@ -421,15 +512,20 @@ class RealtimeSyncService {
 
   public async addUser(name: string) {
     const trimmed = name.trim();
-    if (!trimmed || this.currentState.users.includes(trimmed)) return;
+    if (!trimmed) return;
 
-    const newUsers = [...this.currentState.users, trimmed];
+    // Remove from deleted list if previously deleted
+    const deleted = this.getDeletedUsers().filter((u) => u !== trimmed);
+    this.saveDeletedUsers(deleted);
+
+    const newUsers = Array.from(new Set([...this.currentState.users, trimmed]));
+    this.savePersistedUsers(newUsers);
     this.currentState = { ...this.currentState, users: newUsers };
     this.notifyListeners();
     this.syncLocalAcrossTabs();
 
     if (isFirebaseConfigured) {
-      addFirebaseUser(trimmed, this.currentState.users);
+      addFirebaseUser(trimmed, newUsers);
     }
 
     this.send({ type: 'ADD_USER', data: { name: trimmed } });
@@ -446,7 +542,14 @@ class RealtimeSyncService {
     const trimmedNew = newName.trim();
     if (!trimmedNew || oldName === trimmedNew) return;
 
-    const newUsers = this.currentState.users.map((u) => (u === oldName ? trimmedNew : u));
+    const deleted = Array.from(new Set([...this.getDeletedUsers().filter((u) => u !== trimmedNew), oldName]));
+    this.saveDeletedUsers(deleted);
+
+    const newUsers = Array.from(
+      new Set(this.currentState.users.map((u) => (u === oldName ? trimmedNew : u)))
+    );
+    this.savePersistedUsers(newUsers);
+
     const newOrders = { ...this.currentState.orders };
 
     let existingItems: OrderItem[] | undefined;
@@ -478,7 +581,12 @@ class RealtimeSyncService {
   }
 
   public async deleteUser(name: string) {
+    const deleted = Array.from(new Set([...this.getDeletedUsers(), name]));
+    this.saveDeletedUsers(deleted);
+
     const newUsers = this.currentState.users.filter((u) => u !== name);
+    this.savePersistedUsers(newUsers);
+
     const newOrders = { ...this.currentState.orders };
     delete newOrders[name];
 
