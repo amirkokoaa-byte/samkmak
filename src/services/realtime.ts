@@ -12,6 +12,7 @@ import {
   deleteFirebaseUser,
   renameFirebaseUser,
   setFirebaseUsers,
+  fetchFirebaseStateRest,
 } from '../firebase.ts';
 
 const STORAGE_KEY = 'seafood_order_system_state';
@@ -94,6 +95,8 @@ class RealtimeSyncService {
   private isConnecting = false;
   private reconnectTimer: any = null;
   private unsubscribeFirebase: (() => void) | null = null;
+  private pendingMutations = 0;
+  private lastMutationTimestamp = 0;
 
   constructor() {
     this.loadLocalBackup();
@@ -102,6 +105,16 @@ class RealtimeSyncService {
     this.initSSE();
     this.connectWebSocket();
     this.startPolling();
+  }
+
+  private beginMutation() {
+    this.pendingMutations++;
+    this.lastMutationTimestamp = Date.now();
+  }
+
+  private endMutation() {
+    this.pendingMutations = Math.max(0, this.pendingMutations - 1);
+    this.lastMutationTimestamp = Date.now();
   }
 
   private getPersistedUsers(): string[] {
@@ -386,7 +399,33 @@ class RealtimeSyncService {
   }
 
   private async fetchStateFallback() {
+    if (this.pendingMutations > 0 || Date.now() - this.lastMutationTimestamp < 2000) {
+      return;
+    }
+
     try {
+      if (isFirebaseConfigured) {
+        const firebaseState = await fetchFirebaseStateRest(this.currentState);
+        if (this.pendingMutations > 0 || Date.now() - this.lastMutationTimestamp < 2000) {
+          return;
+        }
+        if (firebaseState && firebaseState.config && Array.isArray(firebaseState.users)) {
+          const reconciledUsers = this.reconcileUsers(firebaseState.users, true);
+          const mergedData: AppState = {
+            ...firebaseState,
+            users: reconciledUsers,
+          };
+          const currentJson = JSON.stringify(this.currentState);
+          const newJson = JSON.stringify(mergedData);
+          if (currentJson !== newJson) {
+            this.currentState = mergedData;
+            this.notifyListeners();
+            this.syncLocalAcrossTabs();
+          }
+        }
+        return;
+      }
+
       const res = await fetch(`/api/state?_t=${Date.now()}&_r=${Math.random()}`, {
         cache: 'no-store',
         headers: {
@@ -394,6 +433,9 @@ class RealtimeSyncService {
           'Pragma': 'no-cache',
         },
       });
+      if (this.pendingMutations > 0 || Date.now() - this.lastMutationTimestamp < 2000) {
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         if (data && data.config && Array.isArray(data.users)) {
@@ -491,184 +533,219 @@ class RealtimeSyncService {
 
   // Client mutation methods (Immediate Optimistic Local + Broadcast + HTTP Post)
   public async updateConfig(newConfig: Partial<AppConfig>) {
-    const updatedConfig = { ...this.currentState.config, ...newConfig };
-    this.currentState = { ...this.currentState, config: updatedConfig };
-    this.notifyListeners();
-    this.syncLocalAcrossTabs();
-
-    if (isFirebaseConfigured) {
-      setFirebaseConfig(updatedConfig);
-    }
-
-    this.send({ type: 'UPDATE_CONFIG', data: updatedConfig });
+    this.beginMutation();
     try {
-      await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedConfig),
-      });
-    } catch {}
+      const updatedConfig = { ...this.currentState.config, ...newConfig };
+      this.currentState = { ...this.currentState, config: updatedConfig };
+      this.notifyListeners();
+      this.syncLocalAcrossTabs();
+
+      if (isFirebaseConfigured) {
+        await setFirebaseConfig(updatedConfig);
+      }
+
+      this.send({ type: 'UPDATE_CONFIG', data: updatedConfig });
+      try {
+        await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedConfig),
+        });
+      } catch {}
+    } finally {
+      this.endMutation();
+    }
   }
 
   public async addUser(name: string) {
     const trimmed = name.trim();
     if (!trimmed) return;
 
-    // Remove from deleted list if previously deleted
-    const deleted = this.getDeletedUsers().filter((u) => u !== trimmed);
-    this.saveDeletedUsers(deleted);
-
-    const newUsers = Array.from(new Set([...this.currentState.users, trimmed]));
-    this.savePersistedUsers(newUsers);
-    this.currentState = { ...this.currentState, users: newUsers };
-    this.notifyListeners();
-    this.syncLocalAcrossTabs();
-
-    if (isFirebaseConfigured) {
-      addFirebaseUser(trimmed, newUsers);
-    }
-
-    this.send({ type: 'ADD_USER', data: { name: trimmed } });
+    this.beginMutation();
     try {
-      await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: trimmed }),
-      });
-    } catch {}
+      // Remove from deleted list if previously deleted
+      const deleted = this.getDeletedUsers().filter((u) => u !== trimmed);
+      this.saveDeletedUsers(deleted);
+
+      const newUsers = Array.from(new Set([...this.currentState.users, trimmed]));
+      this.savePersistedUsers(newUsers);
+      this.currentState = { ...this.currentState, users: newUsers };
+      this.notifyListeners();
+      this.syncLocalAcrossTabs();
+
+      if (isFirebaseConfigured) {
+        await addFirebaseUser(trimmed, newUsers);
+      }
+
+      this.send({ type: 'ADD_USER', data: { name: trimmed } });
+      try {
+        await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trimmed }),
+        });
+      } catch {}
+    } finally {
+      this.endMutation();
+    }
   }
 
   public async renameUser(oldName: string, newName: string) {
     const trimmedNew = newName.trim();
     if (!trimmedNew || oldName === trimmedNew) return;
 
-    const deleted = Array.from(new Set([...this.getDeletedUsers().filter((u) => u !== trimmedNew), oldName]));
-    this.saveDeletedUsers(deleted);
-
-    const newUsers = Array.from(
-      new Set(this.currentState.users.map((u) => (u === oldName ? trimmedNew : u)))
-    );
-    this.savePersistedUsers(newUsers);
-
-    const newOrders = { ...this.currentState.orders };
-
-    let existingItems: OrderItem[] | undefined;
-    if (newOrders[oldName]) {
-      existingItems = newOrders[oldName].items;
-      newOrders[trimmedNew] = {
-        ...newOrders[oldName],
-        userName: trimmedNew,
-      };
-      delete newOrders[oldName];
-    }
-
-    this.currentState = { ...this.currentState, users: newUsers, orders: newOrders };
-    this.notifyListeners();
-    this.syncLocalAcrossTabs();
-
-    if (isFirebaseConfigured) {
-      renameFirebaseUser(oldName, trimmedNew, newUsers, existingItems);
-    }
-
-    this.send({ type: 'RENAME_USER', data: { oldName, newName: trimmedNew } });
+    this.beginMutation();
     try {
-      await fetch('/api/users/rename', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ oldName, newName: trimmedNew }),
-      });
-    } catch {}
+      const deleted = Array.from(new Set([...this.getDeletedUsers().filter((u) => u !== trimmedNew), oldName]));
+      this.saveDeletedUsers(deleted);
+
+      const newUsers = Array.from(
+        new Set(this.currentState.users.map((u) => (u === oldName ? trimmedNew : u)))
+      );
+      this.savePersistedUsers(newUsers);
+
+      const newOrders = { ...this.currentState.orders };
+
+      let existingItems: OrderItem[] | undefined;
+      if (newOrders[oldName]) {
+        existingItems = newOrders[oldName].items;
+        newOrders[trimmedNew] = {
+          ...newOrders[oldName],
+          userName: trimmedNew,
+        };
+        delete newOrders[oldName];
+      }
+
+      this.currentState = { ...this.currentState, users: newUsers, orders: newOrders };
+      this.notifyListeners();
+      this.syncLocalAcrossTabs();
+
+      if (isFirebaseConfigured) {
+        await renameFirebaseUser(oldName, trimmedNew, newUsers, existingItems);
+      }
+
+      this.send({ type: 'RENAME_USER', data: { oldName, newName: trimmedNew } });
+      try {
+        await fetch('/api/users/rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldName, newName: trimmedNew }),
+        });
+      } catch {}
+    } finally {
+      this.endMutation();
+    }
   }
 
   public async deleteUser(name: string) {
-    const deleted = Array.from(new Set([...this.getDeletedUsers(), name]));
-    this.saveDeletedUsers(deleted);
-
-    const newUsers = this.currentState.users.filter((u) => u !== name);
-    this.savePersistedUsers(newUsers);
-
-    const newOrders = { ...this.currentState.orders };
-    delete newOrders[name];
-
-    this.currentState = { ...this.currentState, users: newUsers, orders: newOrders };
-    this.notifyListeners();
-    this.syncLocalAcrossTabs();
-
-    if (isFirebaseConfigured) {
-      deleteFirebaseUser(name, newUsers);
-    }
-
-    this.send({ type: 'DELETE_USER', data: { name } });
+    this.beginMutation();
     try {
-      await fetch('/api/users/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-    } catch {}
+      const deleted = Array.from(new Set([...this.getDeletedUsers(), name]));
+      this.saveDeletedUsers(deleted);
+
+      const newUsers = this.currentState.users.filter((u) => u !== name);
+      this.savePersistedUsers(newUsers);
+
+      const newOrders = { ...this.currentState.orders };
+      delete newOrders[name];
+
+      this.currentState = { ...this.currentState, users: newUsers, orders: newOrders };
+      this.notifyListeners();
+      this.syncLocalAcrossTabs();
+
+      if (isFirebaseConfigured) {
+        await deleteFirebaseUser(name, newUsers);
+      }
+
+      this.send({ type: 'DELETE_USER', data: { name } });
+      try {
+        await fetch('/api/users/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+      } catch {}
+    } finally {
+      this.endMutation();
+    }
   }
 
   public async updateMenu(menuItems: MenuItem[]) {
-    this.currentState = { ...this.currentState, menuItems };
-    this.notifyListeners();
-    this.syncLocalAcrossTabs();
-
-    if (isFirebaseConfigured) {
-      setFirebaseMenu(menuItems);
-    }
-
-    this.send({ type: 'UPDATE_MENU', data: { menuItems } });
+    this.beginMutation();
     try {
-      await fetch('/api/menu', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ menuItems }),
-      });
-    } catch {}
+      this.currentState = { ...this.currentState, menuItems };
+      this.notifyListeners();
+      this.syncLocalAcrossTabs();
+
+      if (isFirebaseConfigured) {
+        await setFirebaseMenu(menuItems);
+      }
+
+      this.send({ type: 'UPDATE_MENU', data: { menuItems } });
+      try {
+        await fetch('/api/menu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ menuItems }),
+        });
+      } catch {}
+    } finally {
+      this.endMutation();
+    }
   }
 
   public async updateUserOrder(userName: string, items: OrderItem[]) {
-    const newOrders = { ...this.currentState.orders };
-    if (items.length === 0) {
-      delete newOrders[userName];
-    } else {
-      newOrders[userName] = {
-        userName,
-        items,
-        updatedAt: Date.now(),
-      };
-    }
-    this.currentState = { ...this.currentState, orders: newOrders };
-    this.notifyListeners();
-    this.syncLocalAcrossTabs();
-
-    if (isFirebaseConfigured) {
-      setFirebaseUserOrder(userName, items);
-    }
-
-    this.send({ type: 'UPDATE_USER_ORDER', data: { userName, items } });
+    this.beginMutation();
     try {
-      await fetch('/api/orders/user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userName, items }),
-      });
-    } catch {}
+      const newOrders = { ...this.currentState.orders };
+      if (items.length === 0) {
+        delete newOrders[userName];
+      } else {
+        newOrders[userName] = {
+          userName,
+          items,
+          updatedAt: Date.now(),
+        };
+      }
+      this.currentState = { ...this.currentState, orders: newOrders };
+      this.notifyListeners();
+      this.syncLocalAcrossTabs();
+
+      if (isFirebaseConfigured) {
+        await setFirebaseUserOrder(userName, items);
+      }
+
+      this.send({ type: 'UPDATE_USER_ORDER', data: { userName, items } });
+      try {
+        await fetch('/api/orders/user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userName, items }),
+        });
+      } catch {}
+    } finally {
+      this.endMutation();
+    }
   }
 
   public async clearAllOrders() {
-    this.currentState = { ...this.currentState, orders: {} };
-    this.notifyListeners();
-    this.syncLocalAcrossTabs();
-
-    if (isFirebaseConfigured) {
-      clearFirebaseAllOrders();
-    }
-
-    this.send({ type: 'CLEAR_ALL_ORDERS' });
+    this.beginMutation();
     try {
-      await fetch('/api/orders/clear-all', { method: 'POST' });
-    } catch {}
+      this.currentState = { ...this.currentState, orders: {} };
+      this.notifyListeners();
+      this.syncLocalAcrossTabs();
+
+      if (isFirebaseConfigured) {
+        await clearFirebaseAllOrders();
+      }
+
+      this.send({ type: 'CLEAR_ALL_ORDERS' });
+      try {
+        await fetch('/api/orders/clear-all', { method: 'POST' });
+      } catch {}
+    } finally {
+      this.endMutation();
+    }
   }
 
   public async archiveCurrentOrders(): Promise<boolean> {
@@ -688,75 +765,84 @@ class RealtimeSyncService {
       return false;
     }
 
-    const now = new Date();
-    const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-    const dayName = dayNames[now.getDay()];
-    const dateFormatted = now.toLocaleDateString('ar-EG', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-    const timeFormatted = now.toLocaleTimeString('ar-EG', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    const dateStr = `${dayName} ${dateFormatted} - ${timeFormatted}`;
-
-    const entryId = `hist-${Date.now()}`;
-    const entry: OrderHistoryEntry = {
-      id: entryId,
-      timestamp: Date.now(),
-      dateStr,
-      dayName,
-      totalPrice: grandTotal,
-      totalUsersCount: usersCount,
-      orders: activeOrders,
-    };
-
-    const newHistory = { ...(this.currentState.history || {}), [entryId]: entry };
-    // حفظ في السجل مع مسح الطلبات الحالية من الصفحة الرئيسية لاستقبال طلبات جديدة
-    this.currentState = { ...this.currentState, history: newHistory, orders: {} };
-    this.notifyListeners();
-    this.syncLocalAcrossTabs();
-
-    if (isFirebaseConfigured) {
-      addFirebaseOrderHistory(entry);
-      clearFirebaseAllOrders();
-    }
-
-    this.send({ type: 'SAVE_HISTORY', data: entry });
-    this.send({ type: 'CLEAR_ALL_ORDERS' });
+    this.beginMutation();
     try {
-      await fetch('/api/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry),
+      const now = new Date();
+      const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+      const dayName = dayNames[now.getDay()];
+      const dateFormatted = now.toLocaleDateString('ar-EG', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
       });
-      await fetch('/api/orders/clear-all', { method: 'POST' });
-    } catch {}
+      const timeFormatted = now.toLocaleTimeString('ar-EG', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const dateStr = `${dayName} ${dateFormatted} - ${timeFormatted}`;
 
-    return true;
+      const entryId = `hist-${Date.now()}`;
+      const entry: OrderHistoryEntry = {
+        id: entryId,
+        timestamp: Date.now(),
+        dateStr,
+        dayName,
+        totalPrice: grandTotal,
+        totalUsersCount: usersCount,
+        orders: activeOrders,
+      };
+
+      const newHistory = { ...(this.currentState.history || {}), [entryId]: entry };
+      // حفظ في السجل مع مسح الطلبات الحالية من الصفحة الرئيسية لاستقبال طلبات جديدة
+      this.currentState = { ...this.currentState, history: newHistory, orders: {} };
+      this.notifyListeners();
+      this.syncLocalAcrossTabs();
+
+      if (isFirebaseConfigured) {
+        await Promise.all([addFirebaseOrderHistory(entry), clearFirebaseAllOrders()]);
+      }
+
+      this.send({ type: 'SAVE_HISTORY', data: entry });
+      this.send({ type: 'CLEAR_ALL_ORDERS' });
+      try {
+        await fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entry),
+        });
+        await fetch('/api/orders/clear-all', { method: 'POST' });
+      } catch {}
+
+      return true;
+    } finally {
+      this.endMutation();
+    }
   }
 
   public async deleteHistoryEntry(id: string) {
-    const newHistory = { ...(this.currentState.history || {}) };
-    delete newHistory[id];
-    this.currentState = { ...this.currentState, history: newHistory };
-    this.notifyListeners();
-    this.syncLocalAcrossTabs();
-
-    if (isFirebaseConfigured) {
-      deleteFirebaseOrderHistory(id);
-    }
-
-    this.send({ type: 'DELETE_HISTORY', data: { id } });
+    this.beginMutation();
     try {
-      await fetch('/api/history/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
-    } catch {}
+      const newHistory = { ...(this.currentState.history || {}) };
+      delete newHistory[id];
+      this.currentState = { ...this.currentState, history: newHistory };
+      this.notifyListeners();
+      this.syncLocalAcrossTabs();
+
+      if (isFirebaseConfigured) {
+        await deleteFirebaseOrderHistory(id);
+      }
+
+      this.send({ type: 'DELETE_HISTORY', data: { id } });
+      try {
+        await fetch('/api/history/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+      } catch {}
+    } finally {
+      this.endMutation();
+    }
   }
 }
 
